@@ -128,7 +128,7 @@ The `+1` part is ignored by the lane; it always uses the next TestFlight build n
 
 ## After the upload
 
-- **Export compliance:** the app only uses standard HTTPS. Until the Info.plist declares this, App Store Connect asks about encryption for each build (**TestFlight → the build → Manage**). To stop the question, add `ITSAppUsesNonExemptEncryption` = `NO` to `ios/Runner/Info.plist` once you've confirmed it applies to you.
+- **Export compliance:** `ios/Runner/Info.plist` declares `ITSAppUsesNonExemptEncryption` = `NO` (the app only uses standard HTTPS), so new builds don't ask about encryption. If the app ever adds other encryption, change this and answer the question in App Store Connect.
 - **Testers:** add internal testers under **TestFlight → Internal Testing**. External testers need a group and Apple's beta review.
 
 ## Troubleshooting
@@ -143,4 +143,4 @@ The `+1` part is ignored by the lane; it always uses the next TestFlight build n
 | *…is inside an iCloud Drive-synced folder…* or Xcode *Exited with status code 255* / *resource fork, Finder information, or similar detritus not allowed* | iCloud Drive ("Desktop & Documents" sync) adds file attributes that break code signing. Keep the project outside iCloud, e.g. `~/Personal/Github/nexora-app`. |
 | *fastlane requires your locale to be set to UTF-8* | Set `LC_ALL` and `LANG` (setup step 1). |
 | Tests or coverage fail | Fix them first; the release stops on purpose. `skip_checks:true` exists for emergencies. |
-| *Missing Compliance* on the build in App Store Connect | Answer the encryption question for that build, or add `ITSAppUsesNonExemptEncryption` (see above). |
+| *Missing Compliance* on the build in App Store Connect | Answer the encryption question for that build (**TestFlight → the build → Manage**). Builds from 1.0.0 (2) on declare it in Info.plist. |
