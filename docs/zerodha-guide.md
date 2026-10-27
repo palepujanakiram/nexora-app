@@ -110,25 +110,30 @@ NexoraApp stores the key and secret in your phone's secure storage (Keychain on 
 
 Zerodha logins via the API end every morning at about **6:00 AM IST**, so do this once each trading day before you use the app.
 
-1. On the **Accounts** tab, find your Zerodha card and tap **Login**.
-2. Tap **Open login page**. Your browser opens Zerodha's login page.
+### On iPhone or Android (automatic)
 
-   <img src="screenshots/guide/login-dialog.jpg" width="280" alt="NexoraApp login dialog">
+1. On the **Accounts** tab, find your Zerodha card and tap **Login**.
+2. Tap **Log in**. Zerodha's login page opens inside NexoraApp.
+
+   <img src="screenshots/guide/login-in-app.png" width="280" alt="Login dialog with the Log in button">
 
 3. Log in with your Zerodha **user ID**, **password** and **2-step code**. The first time, Zerodha may ask you to **authorise** the app; allow it.
-4. The browser then tries to open `https://127.0.0.1/?...request_token=...` and shows an error such as *"This site can't be reached"*. **That's expected.** The part you need is in the address bar.
-5. Copy the **whole address** from the address bar:
-   - **Android (Chrome):** tap the address bar, tap the text once more to select all, then tap **Copy**.
-   - **iPhone (Safari):** tap the address bar, tap the text, choose **Select All**, then **Copy**.
-6. Switch back to NexoraApp, paste it into the box under step 2, and tap **Generate session**.
-
-   <img src="screenshots/guide/login-pasted.jpg" width="280" alt="Redirect URL pasted into the login dialog">
-
-7. The card should now say **Logged in**, and the button changes to **Re-login**.
+4. That's it. Zerodha sends you back to `https://127.0.0.1/?...request_token=...` (your app's redirect URL); NexoraApp catches it, reads the `request_token` and creates the session by itself. The window closes and the card shows **Logged in**, and the button changes to **Re-login**.
 
    <img src="screenshots/guide/logged-in.jpg" width="280" alt="Account card showing Logged in">
 
-**If it fails:** the `request_token` works only once and expires within a few minutes. Close the dialog, tap **Login** again and repeat steps 2–6 a little faster.
+Tap **✕** at the top left to cancel the login page.
+
+### In a browser (web version, or if the in-app login doesn't work)
+
+1. In the same dialog, tap **Open in browser** (on the web version it's called **Open login page**).
+2. Log in. The browser then tries to open `https://127.0.0.1/?...request_token=...` (your app's redirect URL) and shows an error such as *"This site can't be reached"*. **That's expected.** The part you need is in the address bar.
+3. Copy the **whole address** from the address bar:
+   - **Android (Chrome):** tap the address bar, tap the text once more to select all, then tap **Copy**.
+   - **iPhone (Safari):** tap the address bar, tap the text, choose **Select All**, then **Copy**.
+4. Switch back to NexoraApp, paste it into the box, and tap **Generate session**.
+
+**If it fails:** the `request_token` works only once and expires within a few minutes. Close the dialog, tap **Login** again and repeat a little faster.
 
 ---
 
@@ -256,7 +261,7 @@ To go back to practice, edit the account and turn **Paper mode** on again.
 ## Daily checklist
 
 1. Phone on your static IP (only needed for live).
-2. NexoraApp → **Accounts** → **Login** / **Re-login** → paste the address → **Generate session**.
+2. NexoraApp → **Accounts** → **Login** / **Re-login** → **Log in** → sign in (NexoraApp finishes the login by itself).
 3. **Signal** → paste → **Parse signal** → check → tick accounts → confirm.
 4. Check orders and GTTs in Kite.
 

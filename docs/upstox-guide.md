@@ -93,25 +93,32 @@ NexoraApp stores the key and secret in your phone's secure storage (Keychain on 
 
 Upstox logins via the API end every morning at about **3:30 AM IST**, so do this once each trading day before you use the app.
 
+### On iPhone or Android (automatic)
+
 1. On the **Accounts** tab, find your Upstox card and tap **Login**.
-2. Tap **Open login page**. Your browser opens Upstox's login page.
+2. Tap **Log in**. Upstox's login page opens inside NexoraApp.
 
-   <img src="screenshots/guide/upstox-login-dialog.jpg" width="280" alt="NexoraApp login dialog for Upstox">
+   <img src="screenshots/guide/login-in-app.png" width="280" alt="Login dialog with the Log in button">
 
-3. Log in with your **mobile number**, the **OTP** you receive and your **6-digit PIN**. If Upstox asks you to allow the app, allow it.
-4. The browser then tries to open `https://127.0.0.1/?code=...` and shows an error such as *"This site can't be reached"*. **That's expected.** The part you need is in the address bar.
-5. Copy the **whole address** from the address bar:
-   - **Android (Chrome):** tap the address bar, tap the text once more to select all, then tap **Copy**.
-   - **iPhone (Safari):** tap the address bar, tap the text, choose **Select All**, then **Copy**.
-6. Switch back to NexoraApp, paste it into the box under step 2, and tap **Generate session**.
-
-   <img src="screenshots/guide/upstox-login-pasted.jpg" width="280" alt="Upstox redirect URL pasted into the login dialog">
-
-7. The card should now say **Logged in**, and the button changes to **Re-login**.
+3. Log in with your **mobile number**, the **OTP** and your **6-digit PIN**. If Upstox asks you to allow the app, allow it.
+4. That's it. Upstox sends you back to your **Redirect URI** (e.g. `https://127.0.0.1/?code=...`); NexoraApp catches it, reads the `code` and creates the session by itself. The window closes and the card shows **Logged in**, and the button changes to **Re-login**.
 
    <img src="screenshots/guide/logged-in.jpg" width="280" alt="Account card showing Logged in">
 
-**If it fails:** the `code` works **only once**, even when the attempt fails, so you can't retry with the same address. Tap **Login** again and repeat steps 2–6. If Upstox shows *Invalid Credentials (UDAPI100016)*, the API key or Redirect URI in NexoraApp doesn't exactly match the app from Part 2.
+Tap **✕** at the top left to cancel the login page.
+
+### In a browser (web version, or if the in-app login doesn't work)
+
+1. In the same dialog, tap **Open in browser** (on the web version it's called **Open login page**).
+2. Log in. The browser then tries to open your **Redirect URI** (e.g. `https://127.0.0.1/?code=...`) and shows an error such as *"This site can't be reached"*. **That's expected.** The part you need is in the address bar.
+3. Copy the **whole address** from the address bar:
+   - **Android (Chrome):** tap the address bar, tap the text once more to select all, then tap **Copy**.
+   - **iPhone (Safari):** tap the address bar, tap the text, choose **Select All**, then **Copy**.
+4. Switch back to NexoraApp, paste it into the box, and tap **Generate session**.
+
+**If it fails:** the `code` works only once and expires within a few minutes. Close the dialog, tap **Login** again and repeat a little faster.
+
+If Upstox shows *Invalid Credentials (UDAPI100016)*, the API key or Redirect URI in NexoraApp doesn't exactly match the app from Part 2.
 
 ---
 
@@ -239,7 +246,7 @@ To go back to practice, edit the account and turn **Paper mode** on again.
 ## Daily checklist
 
 1. Phone on your static IP (only needed for live).
-2. NexoraApp → **Accounts** → **Login** / **Re-login** → paste the address → **Generate session**.
+2. NexoraApp → **Accounts** → **Login** / **Re-login** → **Log in** → sign in (NexoraApp finishes the login by itself).
 3. **Signal** → paste → **Parse signal** → check → tick accounts → confirm.
 4. Check orders and GTTs in the Upstox app.
 

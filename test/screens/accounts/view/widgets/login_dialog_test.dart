@@ -9,8 +9,10 @@ import 'package:nexora_app/screens/accounts/usecase/get_login_url_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/login_with_redirect_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/set_access_token_usecase.dart';
 import 'package:nexora_app/screens/accounts/view/widgets/login_dialog.dart';
+import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
 import '../../../../fakes.dart';
+import '../../fake_webview_platform.dart';
 
 class _ControlledBroker extends FakeBrokerRepository {
   Completer<String>? pending;
@@ -62,12 +64,16 @@ void main() {
     messenger.setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
-  Future<void> openDialog(WidgetTester tester, [BrokerAccount? account]) async {
+  /// The paste flow by default (as on the web); [inAppBrowser] adds the in-app login.
+  Future<void> openDialog(WidgetTester tester, [BrokerAccount? account, bool inAppBrowser = false]) async {
     final a = account ?? accounts.current.single;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: Builder(
-          builder: (context) => TextButton(onPressed: () => LoginDialog.show(context, a), child: const Text('open')),
+          builder: (context) => TextButton(
+            onPressed: () => LoginDialog.show(context, a, inAppBrowser: inAppBrowser),
+            child: const Text('open'),
+          ),
         ),
       ),
     ));
@@ -197,5 +203,94 @@ void main() {
     expect(broker.inputs, ['']);
     expect(find.byType(AlertDialog), findsNothing);
     expect(accounts.current.single.hasValidToken, isTrue);
+  });
+
+  group('in-app login', () {
+    late FakeWebViewPlatform browser;
+
+    setUp(() => WebViewPlatform.instance = browser = FakeWebViewPlatform());
+
+    Finder logInButton() => find.widgetWithText(FilledButton, 'Log in');
+
+    Future<void> tapLogIn(WidgetTester tester) async {
+      await tester.tap(logInButton());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    testWidgets('offers Log in first, with the browser and paste flow as a fallback', (tester) async {
+      await openDialog(tester, null, true);
+      expect(find.text('Sign in on the broker\'s page. NexoraApp picks up the login by itself.'), findsOneWidget);
+      expect(logInButton(), findsOneWidget);
+      expect(find.text('Or log in in your browser:'), findsOneWidget);
+      expect(find.text('Open in browser'), findsOneWidget);
+      expect(find.text('Open login page'), findsNothing);
+      expect(find.text('Generate session'), findsOneWidget);
+    });
+
+    testWidgets('Zerodha: the redirect is caught and the session created without pasting', (tester) async {
+      await openDialog(tester, null, true);
+      await tapLogIn(tester);
+      expect(find.text('Zerodha login'), findsOneWidget);
+      expect(browser.controller!.loaded.toString(), 'https://login.example/a');
+
+      final url = 'https://127.0.0.1/?action=login&status=success&request_token=rt42';
+      expect(await browser.navigate(url), NavigationDecision.prevent);
+      await settle(tester);
+
+      expect(broker.inputs, [url]);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(accounts.current.single.accessToken, 'token-$url');
+    });
+
+    testWidgets('Upstox: waits for its redirect URI and calls the page "Upstox login"', (tester) async {
+      final upstox = testAccount(loggedIn: false).copyWith(broker: BrokerType.upstox, redirectUri: 'https://127.0.0.1/');
+      accounts = FakeAccountRepository([upstox]);
+      await sl.reset();
+      sl
+        ..registerFactory(() => GetLoginUrlUseCase(broker))
+        ..registerFactory(() => LoginWithRedirectUseCase(broker, accounts))
+        ..registerFactory(() => SetAccessTokenUseCase(accounts));
+      await openDialog(tester, upstox, true);
+      await tapLogIn(tester);
+      expect(find.text('Upstox login'), findsOneWidget);
+
+      expect(await browser.navigate('https://login.upstox.com/?code=not-the-redirect'), NavigationDecision.navigate);
+      expect(await browser.navigate('https://127.0.0.1/?code=up1'), NavigationDecision.prevent);
+      await settle(tester);
+      expect(broker.inputs, ['https://127.0.0.1/?code=up1']);
+      expect(accounts.current.single.hasValidToken, isTrue);
+    });
+
+    testWidgets('closing the login page keeps the dialog open without logging in', (tester) async {
+      await openDialog(tester, null, true);
+      await tapLogIn(tester);
+      await tester.tap(find.byTooltip('Cancel'));
+      await settle(tester);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(broker.inputs, isEmpty);
+    });
+
+    testWidgets('a failed exchange after the redirect shows the error and keeps the dialog', (tester) async {
+      broker.error = Exception('Kite: Token is invalid or has expired.');
+      await openDialog(tester, null, true);
+      await tapLogIn(tester);
+      await browser.navigate('https://127.0.0.1/?request_token=old');
+      await settle(tester);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.textContaining('Token is invalid'), findsOneWidget);
+    });
+
+    testWidgets('Groww keeps its approval flow (no in-app login)', (tester) async {
+      final groww = testAccount(loggedIn: false).copyWith(broker: BrokerType.groww);
+      await openDialog(tester, groww, true);
+      expect(logInButton(), findsNothing);
+      expect(find.text('Open API keys page'), findsOneWidget);
+    });
   });
 }
