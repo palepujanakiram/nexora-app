@@ -35,4 +35,23 @@ mixin BrokerHttp {
     }
     return trimmed;
   }
+
+  /// Splits one CSV line, honouring double-quoted fields that contain commas.
+  static List<String> splitCsv(String line) {
+    final out = <String>[];
+    final buf = StringBuffer();
+    var quoted = false;
+    for (final ch in line.split('')) {
+      if (ch == '"') {
+        quoted = !quoted;
+      } else if (ch == ',' && !quoted) {
+        out.add(buf.toString());
+        buf.clear();
+      } else {
+        buf.write(ch);
+      }
+    }
+    out.add(buf.toString());
+    return out;
+  }
 }

@@ -31,7 +31,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: BrokerSetupHelp(guide: guide)))));
   }
 
-  for (final guide in [BrokerSetupGuide.zerodha, BrokerSetupGuide.upstox]) {
+  for (final guide in [BrokerSetupGuide.zerodha, BrokerSetupGuide.upstox, BrokerSetupGuide.groww]) {
     testWidgets('${guide.title}: lists steps and links', (tester) async {
       await pump(tester, guide);
       expect(find.text('How to get your ${guide.title} API keys'), findsOneWidget);

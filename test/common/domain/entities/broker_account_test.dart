@@ -73,6 +73,14 @@ void main() {
       expect(_acc(issued: reset).hasValidToken, isFalse, reason: 'must be strictly after the reset');
     });
 
+    test('Groww resets at 06:00 IST, like Kite', () {
+      final reset = _lastReset(6, 0);
+      final g = BrokerType.groww;
+      expect(_acc(broker: g, issued: reset.add(const Duration(minutes: 1))).hasValidToken, isTrue);
+      expect(_acc(broker: g, issued: reset.subtract(const Duration(minutes: 1))).hasValidToken, isFalse);
+      expect(BrokerType.groww.label, 'Groww');
+    });
+
     test('Upstox resets at 03:30 IST', () {
       final reset = _lastReset(3, 30);
       final up = BrokerType.upstox;

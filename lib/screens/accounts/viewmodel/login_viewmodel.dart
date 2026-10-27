@@ -10,7 +10,12 @@ class LoginViewModel extends ChangeNotifier {
   LoginViewModel(this.account, GetLoginUrlUseCase getLoginUrl, this._login, this._setToken)
       : _state = LoginState(
           loginUrl: getLoginUrl(account),
-          codeName: account.broker == BrokerType.zerodha ? 'request_token' : 'code',
+          codeName: switch (account.broker) {
+            BrokerType.zerodha => 'request_token',
+            BrokerType.upstox => 'code',
+            BrokerType.groww => 'TOTP code',
+          },
+          redirectLogin: account.broker != BrokerType.groww,
         );
 
   final BrokerAccount account;
@@ -21,12 +26,15 @@ class LoginViewModel extends ChangeNotifier {
   LoginState get state => _state;
 
   /// Returns true once a session is stored.
-  Future<bool> loginWithRedirect(String input) => _run(input, () => _login(account, input));
+  /// Without a redirect login (Groww) the input may be empty: the session is
+  /// created from the day's approval on the broker's site.
+  Future<bool> loginWithRedirect(String input) =>
+      _run(input, () => _login(account, input), allowEmpty: !_state.redirectLogin);
 
   Future<bool> useAccessToken(String input) => _run(input, () => _setToken(account, input));
 
-  Future<bool> _run(String input, Future<void> Function() action) async {
-    if (input.trim().isEmpty || _state.busy) return false;
+  Future<bool> _run(String input, Future<void> Function() action, {bool allowEmpty = false}) async {
+    if ((input.trim().isEmpty && !allowEmpty) || _state.busy) return false;
     _emit(_state.copyWith(busy: true, clearError: true));
     try {
       await action();

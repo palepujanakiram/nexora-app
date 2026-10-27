@@ -1,6 +1,6 @@
 # NexoraApp CORS proxy (Cloudflare Worker)
 
-Lets the **Flutter web** build call the Zerodha and Upstox APIs, which browsers otherwise block (CORS). iOS and Android don't need it.
+Lets the **Flutter web** build call the Zerodha, Upstox and Groww APIs, which browsers otherwise block (CORS). iOS and Android don't need it.
 
 **For testing and paper trading only.** Cloudflare's outgoing IP addresses are shared and change, so you can't register them with your broker as the static IP that SEBI's API-trading rules require. For live trading, use a server with a static IP.
 
@@ -8,7 +8,7 @@ Lets the **Flutter web** build call the Zerodha and Upstox APIs, which browsers 
 
 | | |
 |---|---|
-| Target hosts | `api.kite.trade`, `api.upstox.com`, `api-hft.upstox.com` only |
+| Target hosts | `api.kite.trade`, `api.upstox.com`, `api-hft.upstox.com`, `api.groww.in`, `growwapi-assets.groww.in` only |
 | Callers | Browser origins listed in `ALLOWED_ORIGINS` (default: `localhost` / `127.0.0.1`, any port) |
 | Orders | **Blocked** while `ALLOW_ORDERS = "false"` (default): placing, modifying or cancelling orders and GTTs returns an error. Login, instrument lists, quotes and option-contract lookups still work, so paper trades resolve real contracts. |
 

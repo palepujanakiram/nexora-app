@@ -1,12 +1,13 @@
 enum BrokerType {
   zerodha('Zerodha (Kite Connect)'),
-  upstox('Upstox');
+  upstox('Upstox'),
+  groww('Groww');
 
   const BrokerType(this.label);
   final String label;
 }
 
-/// Carry-forward (Kite NRML / Upstox D) or intraday (Kite MIS / Upstox I).
+/// Carry-forward (Kite/Groww NRML, Upstox D) or intraday (Kite/Groww MIS, Upstox I).
 enum ProductType {
   carryForward('Carry forward (NRML)'),
   intraday('Intraday (MIS)');
@@ -54,12 +55,12 @@ class BrokerAccount {
   /// Paper accounts never send orders to the broker.
   final bool paperMode;
 
-  /// Broker sessions expire daily: Kite at 06:00 IST, Upstox at 03:30 IST.
+  /// Broker sessions expire daily: Kite and Groww at 06:00 IST, Upstox at 03:30 IST.
   bool get hasValidToken {
     final token = accessToken;
     final issued = tokenIssuedAt;
     if (token == null || token.isEmpty || issued == null) return false;
-    final (h, m) = broker == BrokerType.zerodha ? (6, 0) : (3, 30);
+    final (h, m) = broker == BrokerType.upstox ? (3, 30) : (6, 0);
     return issued.toUtc().isAfter(_lastIstReset(h, m));
   }
 

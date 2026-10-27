@@ -113,4 +113,22 @@ void main() {
     expect(await vm.useAccessToken('tok'), isFalse);
     expect(vm.state.error, contains('disk full'));
   });
+
+  test('Groww has no redirect: the code is an optional TOTP and an empty input logs in', () async {
+    final groww = testAccount(loggedIn: false).copyWith(broker: BrokerType.groww);
+    final repo = FakeAccountRepository([groww]);
+    final vm = build(groww, repo: repo);
+    expect(vm.state.redirectLogin, isFalse);
+    expect(vm.state.codeName, 'TOTP code');
+
+    expect(await vm.loginWithRedirect(''), isTrue);
+    expect(repo.current.single.accessToken, 'token-');
+    expect(await vm.useAccessToken(' '), isFalse, reason: 'a pasted access token still needs text');
+  });
+
+  test('Upstox uses the code parameter and a redirect login', () {
+    final vm = build(testAccount().copyWith(broker: BrokerType.upstox));
+    expect(vm.state.codeName, 'code');
+    expect(vm.state.redirectLogin, isTrue);
+  });
 }

@@ -33,6 +33,7 @@ class BrokerSetupGuide {
   static BrokerSetupGuide of(BrokerType broker) => switch (broker) {
         BrokerType.zerodha => zerodha,
         BrokerType.upstox => upstox,
+        BrokerType.groww => groww,
       };
 
   static const zerodha = BrokerSetupGuide(
@@ -73,6 +74,27 @@ class BrokerSetupGuide {
     links: [
       GuideLink('Upstox developer apps', 'https://account.upstox.com/developer/apps'),
       GuideLink('Upstox authentication docs', 'https://upstox.com/developer/api-documentation/authentication'),
+    ],
+  );
+
+  static const groww = BrokerSetupGuide(
+    broker: BrokerType.groww,
+    title: 'Groww',
+    subtitle: 'Groww Trade API',
+    apiKeyLabel: 'API key',
+    apiSecretLabel: 'API secret',
+    needsRedirectUri: false,
+    steps: [
+      'Subscribe to Groww Trading APIs in the Groww app or website (Profile → Trading APIs).',
+      'Open the Groww API keys page and generate an API key and secret.',
+      'Copy the API key and API secret into the fields above.',
+      'Each trading day, approve the key on the API keys page, then tap Login → Generate session in NexoraApp.',
+      'NexoraApp places the entry order only on Groww; add the stop loss / target (OCO) in the Groww app after it fills.',
+    ],
+    links: [
+      GuideLink('Groww API keys', 'https://groww.in/trade-api/api-keys'),
+      GuideLink('Groww Trading APIs subscription', 'https://groww.in/user/profile/trading-apis'),
+      GuideLink('Groww Trade API docs', 'https://groww.in/trade-api/docs/curl'),
     ],
   );
 }

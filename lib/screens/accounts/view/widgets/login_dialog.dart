@@ -9,6 +9,8 @@ import '../../viewmodel/login_viewmodel.dart';
 
 /// Daily login: open the broker's login page, then paste back the redirect
 /// URL (or the request token / auth code), or paste an access token directly.
+/// Groww has no redirect: the user approves access on its API keys page, then
+/// generates the session (optionally with a TOTP code).
 class LoginDialog extends StatelessWidget {
   const LoginDialog({super.key, required this.account});
 
@@ -49,6 +51,7 @@ class _LoginBodyState extends State<_LoginBody> {
   Widget build(BuildContext context) {
     final vm = context.watch<LoginViewModel>();
     final state = vm.state;
+    final redirect = state.redirectLogin;
     return AlertDialog(
       title: Text('Log in — ${vm.account.label}'),
       content: SizedBox(
@@ -57,7 +60,9 @@ class _LoginBodyState extends State<_LoginBody> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('1. Open the broker login page and sign in.'),
+            Text(redirect
+                ? '1. Open the broker login page and sign in.'
+                : '1. Open the Groww API keys page and approve today\'s access for this API key.'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -65,7 +70,7 @@ class _LoginBodyState extends State<_LoginBody> {
                 FilledButton.tonalIcon(
                   onPressed: () => launchUrl(Uri.parse(state.loginUrl), mode: LaunchMode.externalApplication),
                   icon: const Icon(Icons.open_in_new),
-                  label: const Text('Open login page'),
+                  label: Text(redirect ? 'Open login page' : 'Open API keys page'),
                 ),
                 TextButton.icon(
                   onPressed: () => Clipboard.setData(ClipboardData(text: state.loginUrl)),
@@ -75,11 +80,16 @@ class _LoginBodyState extends State<_LoginBody> {
               ],
             ),
             const SizedBox(height: 16),
-            Text('2. Paste the URL you were redirected to (or just the ${state.codeName}).'),
+            Text(redirect
+                ? '2. Paste the URL you were redirected to (or just the ${state.codeName}).'
+                : '2. Tap Generate session. If you use TOTP instead of approval, enter the 6-digit code first.'),
             const SizedBox(height: 8),
             TextField(
               controller: _input,
-              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'https://…?…'),
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: redirect ? 'https://…?…' : '${state.codeName} (optional)',
+              ),
               maxLines: 3,
               minLines: 1,
             ),

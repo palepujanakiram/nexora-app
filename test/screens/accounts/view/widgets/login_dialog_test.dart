@@ -175,4 +175,27 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(accounts.current.single.accessToken, 'tok');
   });
+
+  testWidgets('Groww: approve on the API keys page, then generate without pasting', (tester) async {
+    final groww = testAccount(loggedIn: false).copyWith(broker: BrokerType.groww);
+    accounts = FakeAccountRepository([groww]);
+    sl
+      ..unregister<LoginWithRedirectUseCase>()
+      ..registerFactory(() => LoginWithRedirectUseCase(broker, accounts));
+    await openDialog(tester, groww);
+
+    expect(find.textContaining('approve today\'s access'), findsOneWidget);
+    expect(find.textContaining('Tap Generate session'), findsOneWidget);
+    expect(find.text('TOTP code (optional)'), findsOneWidget);
+
+    await tester.tap(find.text('Open API keys page'));
+    await tester.pumpAndSettle();
+    expect((launches.single.arguments as Map)['url'], 'https://login.example/a');
+
+    await tester.tap(find.text('Generate session'));
+    await tester.pumpAndSettle();
+    expect(broker.inputs, ['']);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(accounts.current.single.hasValidToken, isTrue);
+  });
 }

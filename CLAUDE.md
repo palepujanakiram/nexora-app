@@ -1,6 +1,6 @@
 # NexoraApp
 
-Flutter app (iOS, Android, web) that parses option trade signals and places orders on Zerodha and Upstox accounts. See [README.md](README.md) for what it does and how the code is laid out.
+Flutter app (iOS, Android, web) that parses option trade signals and places orders on Zerodha, Upstox and Groww accounts. See [README.md](README.md) for what it does and how the code is laid out.
 
 ## Architecture
 

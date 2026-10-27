@@ -34,6 +34,11 @@ test('only broker hosts over https are valid targets', () => {
   assert.equal(parseTarget(PROXY + 'https://evil.com/x'), null);
   assert.equal(parseTarget(PROXY + 'http://api.kite.trade/x'), null);
   assert.equal(parseTarget(PROXY + 'not a url'), null);
+  assert.equal(parseTarget(PROXY + 'https://api.groww.in/v1/token/api/access').hostname, 'api.groww.in');
+  assert.equal(
+    parseTarget(PROXY + 'https://growwapi-assets.groww.in/instruments/instrument.csv').hostname,
+    'growwapi-assets.groww.in',
+  );
 });
 
 test('order endpoints are detected per broker', () => {
@@ -45,6 +50,20 @@ test('order endpoints are detected per broker', () => {
   assert.ok(!isOrderRequest(t('https://api.kite.trade/session/token'), 'POST'));
   assert.ok(!isOrderRequest(t('https://api.upstox.com/v2/login/authorization/token'), 'POST'));
   assert.ok(!isOrderRequest(t('https://api.kite.trade/orders'), 'GET'));
+  assert.ok(isOrderRequest(t('https://api.groww.in/v1/order/create'), 'POST'));
+  assert.ok(isOrderRequest(t('https://api.groww.in/v1/order-advance/create'), 'POST'));
+  assert.ok(!isOrderRequest(t('https://api.groww.in/v1/token/api/access'), 'POST'));
+  assert.ok(!isOrderRequest(t('https://api.groww.in/v1/live-data/ltp'), 'GET'));
+});
+
+test('blocked Groww orders use Groww\'s error format', async () => {
+  const res = await worker.fetch(
+    new Request(PROXY + 'https://api.groww.in/v1/order/create', { method: 'POST', headers: { Origin: 'http://localhost:1234' } }),
+  );
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.status, 'FAILURE');
+  assert.match(body.error.message, /disabled on this proxy/);
 });
 
 test('preflight returns CORS headers for allowed origins', async () => {

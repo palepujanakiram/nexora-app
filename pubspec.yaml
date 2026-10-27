@@ -1,5 +1,5 @@
 name: nexora_app
-description: "NexoraApp — execute option trading signals on multiple Zerodha and Upstox accounts."
+description: "NexoraApp — execute option trading signals on multiple Zerodha, Upstox and Groww accounts."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

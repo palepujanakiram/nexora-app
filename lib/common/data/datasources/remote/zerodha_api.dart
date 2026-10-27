@@ -142,33 +142,15 @@ class ZerodhaApi with BrokerHttp implements BrokerApi {
       throw BrokerApiException('Kite instruments download failed (${res.statusCode}). Is the session valid?');
     }
     final lines = const LineSplitter().convert(res.body);
-    final header = _splitCsv(lines.first);
+    final header = BrokerHttp.splitCsv(lines.first);
     final rows = [
       for (final line in lines.skip(1))
-        if (line.isNotEmpty) Map.fromIterables(header, _splitCsv(line).take(header.length)),
+        if (line.isNotEmpty) Map.fromIterables(header, BrokerHttp.splitCsv(line).take(header.length)),
     ];
     _instrumentCache
       ..removeWhere((k, _) => k.startsWith('$exchange-'))
       ..[cacheKey] = rows;
     return rows;
-  }
-
-  static List<String> _splitCsv(String line) {
-    final out = <String>[];
-    final buf = StringBuffer();
-    var quoted = false;
-    for (final ch in line.split('')) {
-      if (ch == '"') {
-        quoted = !quoted;
-      } else if (ch == ',' && !quoted) {
-        out.add(buf.toString());
-        buf.clear();
-      } else {
-        buf.write(ch);
-      }
-    }
-    out.add(buf.toString());
-    return out;
   }
 
   Future<Map<String, dynamic>> _send(Future<http.Response> request) async {

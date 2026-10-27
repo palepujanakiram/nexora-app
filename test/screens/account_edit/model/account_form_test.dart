@@ -84,4 +84,11 @@ void main() {
     expect(AccountForm.validateLots('1'), isNull);
     expect(AccountForm.validateLots('12'), isNull);
   });
+
+  test('Groww uses its own guide and needs no redirect URI', () {
+    const f = AccountForm(broker: BrokerType.groww);
+    expect(f.guide, same(BrokerSetupGuide.groww));
+    expect(f.needsRedirectUri, isFalse);
+    expect(f.guide.links.first.url, 'https://groww.in/trade-api/api-keys');
+  });
 }

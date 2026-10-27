@@ -5,7 +5,7 @@
  *   https://<worker>.workers.dev/https://api.kite.trade/instruments/BFO
  *
  * Safety rules:
- *  - Only forwards to the Zerodha and Upstox API hosts.
+ *  - Only forwards to the Zerodha, Upstox and Groww API hosts.
  *  - Only answers browsers whose Origin is in ALLOWED_ORIGINS.
  *  - Blocks order placement/modification unless ALLOW_ORDERS is "true".
  *
@@ -20,7 +20,13 @@
  * registered as a static IP with brokers. Use it for testing only.
  */
 
-const ALLOWED_HOSTS = new Set(['api.kite.trade', 'api.upstox.com', 'api-hft.upstox.com']);
+const ALLOWED_HOSTS = new Set([
+  'api.kite.trade',
+  'api.upstox.com',
+  'api-hft.upstox.com',
+  'api.groww.in',
+  'growwapi-assets.groww.in',
+]);
 
 // Endpoints that create, modify or cancel orders. Login, instruments, quotes
 // and option-contract lookups stay allowed so paper trading resolves real contracts.
@@ -28,6 +34,7 @@ const ORDER_PATHS = {
   'api.kite.trade': [/^\/orders(\/|$)/, /^\/gtt(\/|$)/],
   'api.upstox.com': [/^\/v\d\/order(\/|$)/],
   'api-hft.upstox.com': [/^\/v\d\/order(\/|$)/],
+  'api.groww.in': [/^\/v1\/order(-advance)?(\/|$)/],
 };
 
 const DEFAULT_ALLOWED_ORIGINS = 'http://localhost:*,http://127.0.0.1:*';
@@ -132,9 +139,10 @@ export function isOrderRequest(target, method) {
 /** Errors in each broker's own format so the app shows the message. */
 function blockedOrder(target, cors) {
   const message = 'Order placement is disabled on this proxy (ALLOW_ORDERS is not "true").';
-  const body = target.hostname === 'api.kite.trade'
-    ? { status: 'error', message, error_type: 'PermissionException' }
-    : { status: 'error', errors: [{ errorCode: 'PROXY_BLOCKED', message }] };
+  const body = {
+    'api.kite.trade': { status: 'error', message, error_type: 'PermissionException' },
+    'api.groww.in': { status: 'FAILURE', error: { code: 'PROXY_BLOCKED', message } },
+  }[target.hostname] ?? { status: 'error', errors: [{ errorCode: 'PROXY_BLOCKED', message }] };
   return json(body, 403, cors);
 }
 

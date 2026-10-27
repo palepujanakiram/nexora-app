@@ -70,6 +70,7 @@ void main() {
     expect(repo.loginUrl(_zerodha), 'https://kite.zerodha.com/connect/login?v=3&api_key=k');
     expect(Uri.parse(repo.loginUrl(_upstox)).path, '/v2/login/authorization/dialog');
     expect(Uri.parse(repo.loginUrl(_upstox)).queryParameters['redirect_uri'], 'https://app.example/cb');
+    expect(repo.loginUrl(testAccount().copyWith(broker: BrokerType.groww)), 'https://groww.in/trade-api/api-keys');
   });
 
   test('exchangeToken routes to the broker and applies the CORS proxy', () async {

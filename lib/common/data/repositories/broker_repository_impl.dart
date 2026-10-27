@@ -7,6 +7,7 @@ import '../../domain/entities/trade_signal.dart';
 import '../../domain/repositories/broker_repository.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../datasources/remote/broker_api.dart';
+import '../datasources/remote/groww_api.dart';
 import '../datasources/remote/upstox_api.dart';
 import '../datasources/remote/zerodha_api.dart';
 
@@ -23,6 +24,7 @@ class BrokerRepositoryImpl implements BrokerRepository {
     return switch (account.broker) {
       BrokerType.zerodha => ZerodhaApi(account, _http, proxy),
       BrokerType.upstox => UpstoxApi(account, _http, proxy),
+      BrokerType.groww => GrowwApi(account, _http, proxy),
     };
   }
 
