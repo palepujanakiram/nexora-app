@@ -36,6 +36,13 @@ class _SignalBodyState extends State<_SignalBody> {
     super.dispose();
   }
 
+  void _hideKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+
+  void _parse(SignalViewModel vm) {
+    _hideKeyboard();
+    vm.parse(_controller.text);
+  }
+
   Future<void> _confirmAndExecute(SignalViewModel vm) async {
     final state = vm.state;
     final live = state.chosenLive;
@@ -87,6 +94,7 @@ class _SignalBodyState extends State<_SignalBody> {
 
     return ListView(
       padding: const EdgeInsets.all(16),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
         Text('New signal', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 12),
@@ -94,6 +102,12 @@ class _SignalBodyState extends State<_SignalBody> {
           controller: _controller,
           minLines: 3,
           maxLines: 6,
+          // Signals are one line: the keyboard's action key is "Done" (it
+          // closes the keyboard and parses) instead of inserting a newline.
+          keyboardType: TextInputType.text,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _parse(vm),
+          onTapOutside: (_) => _hideKeyboard(),
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
             hintText: 'BUY SENSEX 29 OCT 73100 PUT AT 400-420 WITH SL OF 300 TGT1 540, TGT2 600',
@@ -110,7 +124,7 @@ class _SignalBodyState extends State<_SignalBody> {
         ),
         const SizedBox(height: 12),
         FilledButton.tonalIcon(
-          onPressed: () => vm.parse(_controller.text),
+          onPressed: () => _parse(vm),
           icon: const Icon(Icons.auto_fix_high),
           label: const Text('Parse signal'),
         ),

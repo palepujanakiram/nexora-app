@@ -252,4 +252,60 @@ void main() {
     expect(activity.current.single.success, isTrue);
     expect(activity.current.single, isA<ExecutionResult>());
   });
+
+  group('keyboard', () {
+    bool fieldFocused(WidgetTester tester) =>
+        tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus;
+
+    testWidgets('the action key is Done on a text keyboard, not a newline', (tester) async {
+      await pumpView(tester);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.textInputAction, TextInputAction.done);
+      expect(field.keyboardType, TextInputType.text);
+      expect(field.maxLines, 6, reason: 'long signals still wrap');
+    });
+
+    testWidgets('Done closes the keyboard and parses the signal', (tester) async {
+      await pumpView(tester);
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), valid);
+      expect(fieldFocused(tester), isTrue);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(fieldFocused(tester), isFalse);
+      expect(find.byType(SignalSummaryCard), findsOneWidget);
+    });
+
+    testWidgets('tapping outside the field closes the keyboard', (tester) async {
+      await pumpView(tester);
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.pump(); // the field registers its tap region on the next frame
+      expect(fieldFocused(tester), isTrue);
+
+      await tester.tapAt(tester.getCenter(find.text('New signal')));
+      await tester.pump();
+
+      expect(fieldFocused(tester), isFalse);
+    });
+
+    testWidgets('Parse signal closes the keyboard', (tester) async {
+      await pumpView(tester);
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), valid);
+
+      await tester.tap(find.text('Parse signal'));
+      await tester.pump();
+
+      expect(fieldFocused(tester), isFalse);
+      expect(find.byType(SignalSummaryCard), findsOneWidget);
+    });
+
+    testWidgets('scrolling the screen closes the keyboard', (tester) async {
+      await pumpView(tester);
+      expect(tester.widget<ListView>(find.byType(ListView).first).keyboardDismissBehavior,
+          ScrollViewKeyboardDismissBehavior.onDrag);
+    });
+  });
 }
