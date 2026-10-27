@@ -1,0 +1,11 @@
+name = "nexora-cors-proxy"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Comma-separated web origins allowed to use the proxy. `:*` matches any port
+# (flutter run -d chrome picks a random port). Add your hosted web URL here.
+ALLOWED_ORIGINS = "http://localhost:*,http://127.0.0.1:*"
+
+# Keep "false" for testing: blocks placing/modifying/cancelling orders and GTTs.
+ALLOW_ORDERS = "false"
