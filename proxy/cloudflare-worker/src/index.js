@@ -39,54 +39,59 @@ const STRIPPED_HEADERS = ['origin', 'referer', 'host', 'cookie'];
 
 export default {
   async fetch(request, env = {}) {
-    const allowedOrigins = env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS;
     const ordersEnabled = env.ALLOW_ORDERS === 'true';
     const origin = request.headers.get('Origin');
-    const originAllowed = !!origin && isOriginAllowed(origin, allowedOrigins);
+    const originAllowed = !!origin && isOriginAllowed(origin, env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS);
 
     if (new URL(request.url).pathname === '/health') {
-      // Readable by any origin so the app can explain a rejected origin.
-      return json(
-        { ok: originAllowed, service: 'nexora-cors-proxy', origin, originAllowed, ordersEnabled },
-        200,
-        { 'Access-Control-Allow-Origin': origin || '*', Vary: 'Origin' },
-      );
+      return health(origin, originAllowed, ordersEnabled);
     }
-
     if (!originAllowed) {
       return new Response('Origin not allowed', { status: 403 });
     }
-    const cors = corsHeaders(origin);
-
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: cors });
-    }
-
-    const target = parseTarget(request.url);
-    if (!target) {
-      return json({ status: 'error', message: 'Proxy: unsupported target URL.' }, 400, cors);
-    }
-
-    if (!ordersEnabled && isOrderRequest(target, request.method)) {
-      return blockedOrder(target, cors);
-    }
-
-    const headers = new Headers(request.headers);
-    for (const h of STRIPPED_HEADERS) headers.delete(h);
-    for (const h of [...headers.keys()]) if (h.startsWith('cf-')) headers.delete(h);
-
-    const upstream = await fetch(target.toString(), {
-      method: request.method,
-      headers,
-      body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
-      redirect: 'manual',
-    });
-
-    const response = new Response(upstream.body, upstream);
-    for (const [k, v] of Object.entries(cors)) response.headers.set(k, v);
-    return response;
+    return handleAllowedOrigin(request, corsHeaders(origin), ordersEnabled);
   },
 };
+
+/** Readable by any origin so the app can explain a rejected origin. */
+function health(origin, originAllowed, ordersEnabled) {
+  return json(
+    { ok: originAllowed, service: 'nexora-cors-proxy', origin, originAllowed, ordersEnabled },
+    200,
+    { 'Access-Control-Allow-Origin': origin || '*', Vary: 'Origin' },
+  );
+}
+
+function handleAllowedOrigin(request, cors, ordersEnabled) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: cors });
+  }
+  const target = parseTarget(request.url);
+  if (!target) {
+    return json({ status: 'error', message: 'Proxy: unsupported target URL.' }, 400, cors);
+  }
+  if (!ordersEnabled && isOrderRequest(target, request.method)) {
+    return blockedOrder(target, cors);
+  }
+  return forward(request, target, cors);
+}
+
+async function forward(request, target, cors) {
+  const headers = new Headers(request.headers);
+  for (const h of STRIPPED_HEADERS) headers.delete(h);
+  for (const h of [...headers.keys()]) if (h.startsWith('cf-')) headers.delete(h);
+
+  const upstream = await fetch(target.toString(), {
+    method: request.method,
+    headers,
+    body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
+    redirect: 'manual',
+  });
+
+  const response = new Response(upstream.body, upstream);
+  for (const [k, v] of Object.entries(cors)) response.headers.set(k, v);
+  return response;
+}
 
 /** Supports exact origins and a `:*` port wildcard, e.g. `http://localhost:*`. */
 export function isOriginAllowed(origin, allowedList = '') {

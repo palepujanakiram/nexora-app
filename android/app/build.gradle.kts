@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.janakiram.nexora_app"
+    namespace = "com.janakiram.nexoraapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

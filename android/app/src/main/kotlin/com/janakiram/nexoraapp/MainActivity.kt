@@ -1,4 +1,4 @@
-package com.janakiram.nexora_app
+package com.janakiram.nexoraapp
 
 import io.flutter.embedding.android.FlutterActivity
 
