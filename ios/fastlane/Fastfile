@@ -1,0 +1,160 @@
+# Builds NexoraApp for iOS and uploads it to TestFlight.
+#
+#   cd ios
+#   bundle install
+#   bundle exec fastlane beta
+#
+# Authentication uses an App Store Connect API key (no Apple ID password or
+# 2FA). Set these environment variables (see docs/testflight.md):
+#
+#   ASC_KEY_ID        Key ID of the App Store Connect API key
+#   ASC_ISSUER_ID     Issuer ID shown on the App Store Connect "Integrations" page
+#   ASC_KEY_PATH      Path to the downloaded AuthKey_<KEY_ID>.p8 file
+#     or ASC_KEY_CONTENT  The .p8 file's contents, base64-encoded (for CI secrets)
+#
+# Signing is automatic: Xcode creates or downloads the distribution
+# certificate and provisioning profile through the same API key.
+
+require "base64"
+require "shellwords"
+require "tmpdir"
+
+default_platform(:ios)
+
+PROJECT_ROOT = File.expand_path("../..", __dir__)
+IOS_DIR = File.join(PROJECT_ROOT, "ios")
+
+platform :ios do
+  desc "Run the analyzer and the tests with the 95% coverage gate"
+  lane :checks do
+    flutter("analyze")
+    sh("cd #{PROJECT_ROOT.shellescape} && dart run tool/coverage.dart")
+  end
+
+  desc "Build a signed App Store .ipa without uploading it"
+  desc "Options: build_number:<n> (default: latest TestFlight build + 1), skip_checks:true"
+  lane :build do |options|
+    load_api_key
+    checks unless options[:skip_checks]
+    build_signed_ipa(options[:build_number] || next_build_number)
+  end
+
+  desc "Build, sign and upload to TestFlight"
+  desc "Options: build_number:<n>, skip_checks:true, changelog:\"…\", groups:\"Internal,QA\", wait:true"
+  lane :beta do |options|
+    load_api_key
+    checks unless options[:skip_checks]
+    ipa = build_signed_ipa(options[:build_number] || next_build_number)
+
+    groups = options[:groups]&.split(",")&.map(&:strip)
+    upload_to_testflight(
+      ipa: ipa,
+      changelog: options[:changelog] || recent_changes,
+      groups: groups,
+      distribute_external: false,
+      # Processing takes 10–30 minutes. Distributing to groups needs it to
+      # finish, so wait only then or when asked to.
+      skip_waiting_for_build_processing: !(options[:wait] || groups),
+    )
+    UI.success("Uploaded #{File.basename(ipa)} to TestFlight.")
+  end
+end
+
+# --- helpers ----------------------------------------------------------------
+
+# Loads the App Store Connect API key from ASC_KEY_ID / ASC_ISSUER_ID and either
+# ASC_KEY_PATH or ASC_KEY_CONTENT (base64). fastlane actions pick it up from
+# the lane context; @asc_key is also used to let xcodebuild sign.
+def load_api_key
+  key_id = required_env("ASC_KEY_ID")
+  issuer_id = required_env("ASC_ISSUER_ID")
+  key_path = ENV["ASC_KEY_PATH"]
+  if key_path.to_s.empty?
+    content = required_env("ASC_KEY_CONTENT", "or ASC_KEY_PATH")
+    key_path = File.join(Dir.tmpdir, "AuthKey_#{key_id}.p8")
+    File.write(key_path, Base64.decode64(content))
+    File.chmod(0o600, key_path)
+  end
+  UI.user_error!("API key file not found: #{key_path}") unless File.exist?(key_path)
+
+  app_store_connect_api_key(key_id: key_id, issuer_id: issuer_id, key_filepath: key_path)
+  @asc_key = { id: key_id, issuer: issuer_id, path: File.expand_path(key_path) }
+end
+
+def next_build_number
+  latest_testflight_build_number(initial_build_number: 0).to_i + 1
+end
+
+# Builds the Flutter app with the given build number, then archives and
+# exports it with Xcode's automatic signing. Returns the .ipa path.
+def build_signed_ipa(build_number)
+  ensure_not_in_icloud
+  build_name = pubspec_version
+  UI.message("Building NexoraApp #{build_name} (#{build_number})")
+
+  flutter("pub get")
+  flutter("build ios --release --no-codesign --build-name=#{build_name} --build-number=#{build_number}")
+
+  build_app(
+    workspace: File.join(IOS_DIR, "Runner.xcworkspace"),
+    scheme: "Runner",
+    configuration: "Release",
+    export_method: "app-store",
+    output_directory: File.join(PROJECT_ROOT, "build/ios/fastlane"),
+    output_name: "NexoraApp-#{build_name}-#{build_number}.ipa",
+    clean: true,
+    xcargs: signing_xcargs,
+    export_xcargs: signing_xcargs,
+    export_options: {
+      signingStyle: "automatic",
+      teamID: CredentialsManager::AppfileConfig.try_fetch_value(:team_id),
+    },
+  )
+end
+
+# Code signing fails ("resource fork, Finder information, or similar detritus
+# not allowed") when the project lives in an iCloud Drive-synced folder such as
+# ~/Desktop or ~/Documents, because iCloud adds extended attributes to files.
+def ensure_not_in_icloud
+  dir = PROJECT_ROOT
+  until dir == "/"
+    synced = system("xattr", "-p", "com.apple.file-provider-domain-id", dir, out: File::NULL, err: File::NULL)
+    if synced
+      UI.user_error!("#{PROJECT_ROOT} is inside an iCloud Drive-synced folder (#{dir}), where iOS code " \
+                     "signing fails. Move the project outside it, e.g. to ~/Developer. See docs/testflight.md.")
+    end
+    dir = File.dirname(dir)
+  end
+end
+
+# Lets xcodebuild create or download certificates and profiles with the API key.
+def signing_xcargs
+  [
+    "-allowProvisioningUpdates",
+    "-authenticationKeyPath #{@asc_key[:path].shellescape}",
+    "-authenticationKeyID #{@asc_key[:id]}",
+    "-authenticationKeyIssuerID #{@asc_key[:issuer]}",
+  ].join(" ")
+end
+
+# "1.0.0" from "version: 1.0.0+1" in pubspec.yaml.
+def pubspec_version
+  line = File.readlines(File.join(PROJECT_ROOT, "pubspec.yaml")).find { |l| l.start_with?("version:") }
+  UI.user_error!("No version: line in pubspec.yaml") unless line
+  line.split(":", 2).last.strip.split("+").first
+end
+
+def recent_changes
+  changelog_from_git_commits(commits_count: 10, pretty: "- %s", merge_commit_filtering: "exclude_merges")
+end
+
+def flutter(args)
+  sh("cd #{PROJECT_ROOT.shellescape} && flutter #{args}")
+end
+
+def required_env(name, alternative = nil)
+  value = ENV[name]
+  return value unless value.to_s.empty?
+
+  UI.user_error!("Set the #{name} environment variable#{" (#{alternative})" if alternative}. See docs/testflight.md.")
+end

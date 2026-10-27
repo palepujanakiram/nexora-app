@@ -1,0 +1,3 @@
+# Bundle ID and Apple Developer team of the Runner target (Runner.xcodeproj).
+app_identifier(ENV.fetch("APP_IDENTIFIER", "com.srisarani.nexora"))
+team_id(ENV.fetch("TEAM_ID", "WR859F2ZHY"))

@@ -112,9 +112,11 @@ Builds:
 
 ```bash
 flutter build apk             # Android (applicationId com.janakiram.nexora_app)
-flutter build ios             # iOS (bundle ID com.janakiram.nexoraApp; needs Xcode and signing)
+flutter build ios             # iOS (bundle ID com.srisarani.nexora, team WR859F2ZHY; needs Xcode and signing)
 flutter build web             # web, served from build/web (needs the CORS proxy below)
 ```
+
+**TestFlight:** `cd ios && bundle exec fastlane beta` runs the checks, builds, signs and uploads the iOS app. One-time setup (App Store Connect app record and API key) is in [docs/testflight.md](docs/testflight.md).
 
 **Web needs a CORS proxy.** Browsers block direct calls to `api.kite.trade`, `api.upstox.com` and `api.groww.in`. Put your own proxy URL in **Settings → Web CORS proxy**; it's prepended to every API URL. iOS and Android don't need one. A ready-made Cloudflare Worker for testing (orders blocked by default) is in [proxy/cloudflare-worker](proxy/cloudflare-worker/README.md), and the app has a step-by-step guide for it under Settings.
 
