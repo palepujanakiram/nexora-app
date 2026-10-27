@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-lines=95",
     "dev": "npx wrangler dev",
     "deploy": "npx wrangler deploy"
   }

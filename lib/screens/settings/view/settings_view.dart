@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,14 +7,18 @@ import '../../../common/domain/entities/app_settings.dart';
 import '../model/settings_state.dart';
 import '../viewmodel/settings_viewmodel.dart';
 import 'widgets/cors_proxy_help.dart';
+import 'widgets/proxy_test_row.dart';
 import 'widgets/theme_color_picker.dart';
 
 class SettingsView extends StatelessWidget {
-  const SettingsView({super.key});
+  const SettingsView({super.key, this.isWeb = kIsWeb});
+
+  /// Shows the web-only proxy tools; overridable for tests.
+  final bool isWeb;
 
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
-        create: (_) => SettingsViewModel(sl(), sl(), sl(), sl()),
+        create: (_) => SettingsViewModel(sl(), sl(), sl(), sl(), isWeb: isWeb),
         child: const _SettingsBody(),
       );
 }
@@ -26,10 +31,33 @@ class _SettingsBody extends StatefulWidget {
 }
 
 class _SettingsBodyState extends State<_SettingsBody> {
-  late final _proxy = TextEditingController(text: context.read<SettingsViewModel>().state.settings.corsProxy);
+  late final SettingsViewModel _vm;
+  late final TextEditingController _proxy;
+
+  /// The saved proxy URL the field was last synced to.
+  late String _syncedProxy;
+
+  @override
+  void initState() {
+    super.initState();
+    _vm = context.read<SettingsViewModel>();
+    _syncedProxy = _vm.state.settings.corsProxy;
+    _proxy = TextEditingController(text: _syncedProxy);
+    _vm.addListener(_syncProxyField);
+  }
+
+  // The saved settings arrive after the first build, so the field must follow
+  // them; otherwise it starts empty and saving it would erase the stored URL.
+  void _syncProxyField() {
+    final saved = _vm.state.settings.corsProxy;
+    if (saved == _syncedProxy) return;
+    _syncedProxy = saved;
+    if (_proxy.text.trim() != saved) _proxy.text = saved;
+  }
 
   @override
   void dispose() {
+    _vm.removeListener(_syncProxyField);
     _proxy.dispose();
     super.dispose();
   }
@@ -99,44 +127,12 @@ class _SettingsBodyState extends State<_SettingsBody> {
         ),
         if (state.isWeb) ...[
           const SizedBox(height: 12),
-          _ProxyTestRow(state: state, onTest: () => vm.testProxy(_proxy.text)),
+          ProxyTestRow(state: state, onTest: () => vm.testProxy(_proxy.text)),
           const SizedBox(height: 16),
           CorsProxyHelp(
             loadWorkerScript: vm.workerScript,
             initiallyExpanded: s.corsProxy.isEmpty,
           ),
-        ],
-      ],
-    );
-  }
-}
-
-class _ProxyTestRow extends StatelessWidget {
-  const _ProxyTestRow({required this.state, required this.onTest});
-
-  final SettingsState state;
-  final VoidCallback onTest;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final message = state.proxyTestMessage;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        OutlinedButton.icon(
-          onPressed: state.testingProxy ? null : onTest,
-          icon: state.testingProxy
-              ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.network_check),
-          label: const Text('Test proxy'),
-        ),
-        if (message != null) ...[
-          const SizedBox(width: 12),
-          Icon(state.proxyTestPassed ? Icons.check_circle : Icons.error_outline,
-              color: state.proxyTestPassed ? Colors.green : scheme.error),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message)),
         ],
       ],
     );

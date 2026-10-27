@@ -10,7 +10,9 @@ import '../usecase/test_proxy_usecase.dart';
 import '../usecase/update_settings_usecase.dart';
 
 class SettingsViewModel extends ChangeNotifier {
-  SettingsViewModel(WatchSettingsUseCase watchSettings, this._update, this._workerScript, this._testProxy) {
+  SettingsViewModel(WatchSettingsUseCase watchSettings, this._update, this._workerScript, this._testProxy,
+      {bool isWeb = kIsWeb})
+      : _state = SettingsState(isWeb: isWeb) {
     _sub = watchSettings().listen((s) => _emit(_state.copyWith(settings: s)));
   }
 
@@ -19,7 +21,7 @@ class SettingsViewModel extends ChangeNotifier {
   final TestProxyUseCase _testProxy;
   late final StreamSubscription<AppSettings> _sub;
 
-  SettingsState _state = const SettingsState(isWeb: kIsWeb);
+  SettingsState _state;
   SettingsState get state => _state;
 
   Future<void> setThemeColor(ThemeColor c) => _update((s) => s.copyWith(themeColor: c));

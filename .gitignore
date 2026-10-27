@@ -46,3 +46,6 @@ app.*.map.json
 
 # Local Claude Code config
 .claude/
+
+# Temporary file written by tool/coverage.dart
+test/_coverage_all_files_test.dart

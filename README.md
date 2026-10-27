@@ -87,9 +87,19 @@ Dependencies point inward: views → view models → use cases → repository in
 
 ```bash
 flutter pub get
-flutter test
 flutter run -d chrome     # or an iOS simulator / Android device
 ```
+
+## Tests and coverage
+
+Every change needs tests, and line coverage of `lib/` must stay at or above **95%** (see [CLAUDE.md](CLAUDE.md)).
+
+```bash
+dart run tool/coverage.dart                      # all tests + 95% gate; lists files below 95%
+cd proxy/cloudflare-worker && npm run coverage   # worker tests + 95% gate
+```
+
+`tool/coverage.dart` counts every file under `lib/`, including files no test imports, so untested code can't hide. The [CI workflow](.github/workflows/ci.yml) runs both checks on every pull request and push to `main`, and uploads the Flutter coverage to qlty.
 
 ## Notes and limits
 
