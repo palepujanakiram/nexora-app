@@ -13,7 +13,7 @@ bundle exec fastlane beta
 | **Minimum iOS** | 15.0 (the lowest Xcode 27 can build for) |
 | **Version** | Taken from `version:` in `pubspec.yaml` (e.g. `1.0.0`) |
 | **Build number** | Latest TestFlight build + 1, worked out automatically |
-| **Signing** | Automatic: Xcode creates or downloads the distribution certificate and profile using the App Store Connect API key |
+| **Signing** | Automatic, through the Apple ID signed in to Xcode (cloud-managed distribution certificate). On CI, `SIGN_WITH_API_KEY=true` signs with an Admin API key instead. |
 | **Sign-in** | App Store Connect API key, so no Apple ID password or 2FA prompts |
 
 ## One-time setup
@@ -38,9 +38,15 @@ bundle exec fastlane beta
   export LANG=en_US.UTF-8
   ```
 
-### 2. Create the app in App Store Connect
+### 2. Sign in to Xcode
 
-TestFlight uploads need an app record, and the App Store Connect API can't create one, so do this once by hand:
+Open **Xcode → Settings → Accounts**, tap **+ → Apple ID** and sign in with an account in team **WR859F2ZHY** that may distribute apps (Account Holder, Admin, or App Manager with access to certificates). Xcode then signs the build with a cloud-managed distribution certificate; no certificate files are needed.
+
+On a machine without an Xcode account (CI), use an API key with the **Admin** role and set `SIGN_WITH_API_KEY=true`.
+
+### 2b. Create the app in App Store Connect
+
+**Already done for NexoraApp:** the record exists in team WR859F2ZHY as **Srisarani Stocks** (Apple ID 6827417638) with bundle ID `com.srisarani.nexora`. For a new app, TestFlight uploads need an app record, and the App Store Connect API can't create one, so do this once by hand:
 
 1. Sign in to [App Store Connect](https://appstoreconnect.apple.com) with an account in team **WR859F2ZHY**.
 2. **Apps → + → New App**.
@@ -57,7 +63,15 @@ TestFlight uploads need an app record, and the App Store Connect API can't creat
 
 ### 4. Tell fastlane about the key
 
-Set these environment variables, for example in `~/.zshrc` or in a file you `source` before releasing. Never commit them.
+The simplest way is a local **`ios/fastlane/.env`** file, which fastlane loads automatically and git ignores. The Srisarani team's key (shared with fotozen_app) is set up like this:
+
+```bash
+ASC_KEY_ID=3Y28UQD6SG
+ASC_ISSUER_ID=cbbdda4e-337b-47d3-970b-297d14aee134
+ASC_KEY_PATH=/Users/janakiram/Personal/Github/fotozen_app/fastlane/credentials/AuthKey_3Y28UQD6SG.p8
+```
+
+Or set the same variables in your shell, for example in `~/.zshrc`. Never commit the `.p8` file.
 
 ```bash
 export ASC_KEY_ID="XXXXXXXXXX"                              # Key ID
@@ -123,7 +137,8 @@ The `+1` part is ignored by the lane; it always uses the next TestFlight build n
 |---|---|
 | *Set the ASC_KEY_ID environment variable* | Do step 4 of the setup in this shell, or `source` the file with the variables. |
 | *Could not find App with App Identifier 'com.srisarani.nexora'* | The app record doesn't exist yet or is in another team. Do step 2. |
-| *No signing certificate "iOS Distribution" found* / *requires a provisioning profile* | The API key isn't **Admin**, so Xcode couldn't create them. Use an Admin key, or create the certificate and an App Store profile on developer.apple.com. |
+| *No Accounts* / *No signing certificate "iOS Distribution" found* / *No profiles for 'com.srisarani.nexora'* | No Apple ID is signed in to Xcode. Do setup step 2, or use an Admin API key with `SIGN_WITH_API_KEY=true`. |
+| *Cloud signing permission error* | The signing account or API key isn't allowed to use cloud-managed certificates. Use an Admin/Account Holder Apple ID or an Admin API key. |
 | *The bundle version must be higher than the previously uploaded version* | Another upload used that number. Run again (it fetches the latest), or pass `build_number:`. |
 | *…is inside an iCloud Drive-synced folder…* or Xcode *Exited with status code 255* / *resource fork, Finder information, or similar detritus not allowed* | iCloud Drive ("Desktop & Documents" sync) adds file attributes that break code signing. Keep the project outside iCloud, e.g. `~/Personal/Github/nexora-app`. |
 | *fastlane requires your locale to be set to UTF-8* | Set `LC_ALL` and `LANG` (setup step 1). |

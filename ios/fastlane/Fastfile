@@ -103,8 +103,8 @@ def build_signed_ipa(build_number)
     output_directory: File.join(PROJECT_ROOT, "build/ios/fastlane"),
     output_name: "NexoraApp-#{build_name}-#{build_number}.ipa",
     clean: true,
+    # gym passes xcargs to both the archive and the export step.
     xcargs: signing_xcargs,
-    export_xcargs: signing_xcargs,
     export_options: {
       signingStyle: "automatic",
       teamID: CredentialsManager::AppfileConfig.try_fetch_value(:team_id),
@@ -127,14 +127,20 @@ def ensure_not_in_icloud
   end
 end
 
-# Lets xcodebuild create or download certificates and profiles with the API key.
+# Lets xcodebuild create or download certificates and profiles. By default it
+# uses the Apple ID signed in to Xcode (Settings → Accounts), which can use
+# cloud-managed distribution certificates. Set SIGN_WITH_API_KEY=true to sign
+# with the API key instead (e.g. on CI); that key needs the Admin role.
 def signing_xcargs
-  [
-    "-allowProvisioningUpdates",
-    "-authenticationKeyPath #{@asc_key[:path].shellescape}",
-    "-authenticationKeyID #{@asc_key[:id]}",
-    "-authenticationKeyIssuerID #{@asc_key[:issuer]}",
-  ].join(" ")
+  args = ["-allowProvisioningUpdates"]
+  if ENV["SIGN_WITH_API_KEY"] == "true"
+    args += [
+      "-authenticationKeyPath #{@asc_key[:path].shellescape}",
+      "-authenticationKeyID #{@asc_key[:id]}",
+      "-authenticationKeyIssuerID #{@asc_key[:issuer]}",
+    ]
+  end
+  args.join(" ")
 end
 
 # "1.0.0" from "version: 1.0.0+1" in pubspec.yaml.
