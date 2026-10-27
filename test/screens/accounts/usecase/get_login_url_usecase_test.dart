@@ -7,4 +7,11 @@ void main() {
   test('returns the broker login URL for the account', () {
     expect(GetLoginUrlUseCase(FakeBrokerRepository())(testAccount(id: 'x')), 'https://login.example/x');
   });
+
+  test('says whether the user may paste an access token', () {
+    final brokers = FakeBrokerRepository();
+    expect(GetLoginUrlUseCase(brokers).acceptsAccessTokens, isTrue);
+    brokers.acceptsAccessTokens = false;
+    expect(GetLoginUrlUseCase(brokers).acceptsAccessTokens, isFalse);
+  });
 }

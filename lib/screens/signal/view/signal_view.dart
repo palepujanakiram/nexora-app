@@ -67,25 +67,40 @@ class _SignalBodyState extends State<_SignalBody> {
     );
     if (ok != true) return;
     final results = await vm.execute();
-    if (mounted) await _showResults(results);
+    if (mounted) await _showResults(vm, results);
   }
 
-  Future<void> _showResults(List<ExecutionResult> results) => showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (ctx) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: [
-              Text('Results', style: Theme.of(ctx).textTheme.titleLarge),
+  Future<void> _showResults(SignalViewModel vm, List<ExecutionResult> results) async {
+    // Accounts the server refused because this signal was already placed on them.
+    final duplicates = {for (final r in results) if (r.isDuplicate && r.accountId != null) r.accountId!};
+    final placeAnyway = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            Text('Results', style: Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            for (final r in results) ExecutionResultCard(result: r),
+            if (duplicates.isNotEmpty) ...[
               const SizedBox(height: 8),
-              for (final r in results) ExecutionResultCard(result: r),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pop(ctx, true),
+                icon: const Icon(Icons.replay),
+                label: Text('Place anyway on ${duplicates.length} account(s)'),
+              ),
             ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
+    if (placeAnyway != true) return;
+    final again = await vm.execute(accountIds: duplicates, allowDuplicate: true);
+    if (mounted) await _showResults(vm, again);
+  }
 
   @override
   Widget build(BuildContext context) {

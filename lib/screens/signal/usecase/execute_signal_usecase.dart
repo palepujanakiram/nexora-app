@@ -9,24 +9,39 @@ import '../../../common/domain/repositories/account_repository.dart';
 import '../../../common/domain/repositories/activity_repository.dart';
 import '../../../common/domain/repositories/broker_repository.dart';
 import '../../../common/domain/repositories/settings_repository.dart';
+import '../../../common/domain/repositories/signal_execution_repository.dart';
 import '../../../common/domain/services/trade_pricing.dart';
 import '../../../common/error/exceptions.dart';
 
 /// Places a signal on the given accounts in parallel and records the results
 /// in the activity log. Per-account failures are returned, not thrown.
+///
+/// When connected to a nexora-backend server ([remote]), the server places
+/// the orders from its static IP and this only shows its results.
 class ExecuteSignalUseCase {
-  ExecuteSignalUseCase(this._brokers, this._accounts, this._settings, this._activity);
+  ExecuteSignalUseCase(this._brokers, this._accounts, this._settings, this._activity, {this.remote});
 
   final BrokerRepository _brokers;
   final AccountRepository _accounts;
   final SettingsRepository _settings;
   final ActivityRepository _activity;
+
+  /// Set while connected to a nexora-backend server.
+  final SignalExecutionRepository? remote;
   final _random = Random();
 
-  Future<List<ExecutionResult>> call(TradeSignal signal, Set<String> accountIds) async {
+  /// [allowDuplicate] tells the server to place it even if it already did on
+  /// an account in the last few minutes. This device has no such check.
+  Future<List<ExecutionResult>> call(TradeSignal signal, Set<String> accountIds, {bool allowDuplicate = false}) async {
     final settings = _settings.current;
-    final targets = _accounts.current.where((a) => accountIds.contains(a.id));
-    final results = await Future.wait(targets.map((a) => _executeOne(a, signal, settings)));
+    final remote = this.remote;
+    final List<ExecutionResult> results;
+    if (remote != null) {
+      results = await remote.execute(signal, accountIds, settings, allowDuplicate: allowDuplicate);
+    } else {
+      final targets = _accounts.current.where((a) => accountIds.contains(a.id));
+      results = await Future.wait(targets.map((a) => _executeOne(a, signal, settings)));
+    }
     await _activity.addAll(results);
     return results;
   }
@@ -92,5 +107,6 @@ class ExecuteSignalUseCase {
         entryPrice: price,
         orders: orders,
         error: error,
+        accountId: account.id,
       );
 }

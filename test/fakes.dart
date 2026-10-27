@@ -1,16 +1,22 @@
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
 import 'package:nexora_app/common/domain/entities/execution_result.dart';
+import 'package:nexora_app/common/domain/entities/server_session.dart';
 import 'package:nexora_app/common/domain/entities/trade_plan.dart';
 import 'package:nexora_app/common/domain/entities/trade_signal.dart';
 import 'package:nexora_app/common/domain/repositories/account_repository.dart';
 import 'package:nexora_app/common/domain/repositories/activity_repository.dart';
 import 'package:nexora_app/common/domain/repositories/broker_repository.dart';
+import 'package:nexora_app/common/domain/repositories/server_repository.dart';
 import 'package:nexora_app/common/domain/repositories/settings_repository.dart';
+import 'package:nexora_app/common/error/exceptions.dart';
 import 'package:nexora_app/common/utils/reactive_cache.dart';
 
 class FakeBrokerRepository implements BrokerRepository {
   final placed = <TradePlan>[];
+
+  @override
+  bool acceptsAccessTokens = true;
 
   @override
   String loginUrl(BrokerAccount account) => 'https://login.example/${account.id}';
@@ -67,6 +73,54 @@ class FakeActivityRepository implements ActivityRepository {
   Future<void> addAll(List<ExecutionResult> r) async => _cache.value = [...r, ...current];
   @override
   Future<void> clear() async => _cache.value = const [];
+}
+
+class FakeServerRepository implements ServerRepository {
+  FakeServerRepository([ServerSession? initial]) : _cache = ReactiveCache(initial);
+  final ReactiveCache<ServerSession?> _cache;
+
+  /// When set, sign-in, registration and IP lookups fail with this message.
+  String? failWith;
+  final calls = <String>[];
+
+  @override
+  ServerSession? get current => _cache.value;
+  @override
+  Stream<ServerSession?> watch() => _cache.watch();
+
+  @override
+  Future<ServerSession> signIn({required String url, required String email, required String password}) async {
+    calls.add('signIn $url $email');
+    return _start(url, email);
+  }
+
+  @override
+  Future<ServerSession> register({
+    required String url,
+    required String email,
+    required String password,
+    required String inviteCode,
+  }) async {
+    calls.add('register $url $email $inviteCode');
+    return _start(url, email);
+  }
+
+  ServerSession _start(String url, String email) {
+    if (failWith != null) throw ServerApiException(failWith!);
+    return _cache.value = ServerSession(url: url, token: 'tok', email: email);
+  }
+
+  @override
+  Future<void> signOut() async {
+    calls.add('signOut');
+    _cache.value = null;
+  }
+
+  @override
+  Future<String> serverIp() async {
+    if (failWith != null) throw ServerApiException(failWith!);
+    return '203.0.113.7';
+  }
 }
 
 BrokerAccount testAccount({String id = 'a', bool paper = false, bool loggedIn = true, bool enabled = true}) =>

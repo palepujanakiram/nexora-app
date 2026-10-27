@@ -7,4 +7,7 @@ class GetLoginUrlUseCase {
   final BrokerRepository _brokers;
 
   String call(BrokerAccount account) => _brokers.loginUrl(account);
+
+  /// Whether the dialog may offer "It is an access token".
+  bool get acceptsAccessTokens => _brokers.acceptsAccessTokens;
 }

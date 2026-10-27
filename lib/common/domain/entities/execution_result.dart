@@ -19,6 +19,8 @@ class ExecutionResult {
     this.entryPrice,
     this.orders = const [],
     this.error,
+    this.accountId,
+    this.errorCode,
   });
 
   final String accountLabel;
@@ -32,5 +34,16 @@ class ExecutionResult {
   final List<PlacedOrder> orders;
   final String? error;
 
+  /// The account it ran on; null for entries saved by older versions.
+  final String? accountId;
+
+  /// Set by the server for some errors: `duplicate` (already placed recently)
+  /// or `in_flight` (being placed from another device right now).
+  final String? errorCode;
+
   bool get success => error == null;
+
+  /// Refused because the same signal was already placed on this account
+  /// recently. It can be sent again on purpose ("Place anyway").
+  bool get isDuplicate => errorCode == 'duplicate';
 }

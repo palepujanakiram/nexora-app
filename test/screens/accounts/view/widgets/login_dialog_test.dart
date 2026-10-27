@@ -92,6 +92,13 @@ void main() {
     expect(find.text('It is an access token'), findsOneWidget);
   });
 
+  testWidgets('with a server holding the tokens, pasting one is not offered', (tester) async {
+    broker.acceptsAccessTokens = false;
+    await openDialog(tester);
+    expect(find.text('Generate session'), findsOneWidget);
+    expect(find.text('It is an access token'), findsNothing);
+  });
+
   testWidgets('upstox asks for the code', (tester) async {
     await openDialog(tester, testAccount(id: 'u').copyWith(broker: BrokerType.upstox));
     expect(find.text('2. Paste the URL you were redirected to (or just the code).'), findsOneWidget);

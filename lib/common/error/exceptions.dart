@@ -13,3 +13,18 @@ class BrokerApiException implements Exception {
   @override
   String toString() => message;
 }
+
+/// Thrown when the nexora-backend server refuses a request or can't be reached.
+class ServerApiException implements Exception {
+  ServerApiException(this.message, {this.statusCode, this.code});
+  final String message;
+
+  /// HTTP status, or null when the server couldn't be reached.
+  final int? statusCode;
+
+  /// The server's error code, e.g. `unauthorized` or `broker_error`.
+  final String? code;
+
+  @override
+  String toString() => message;
+}

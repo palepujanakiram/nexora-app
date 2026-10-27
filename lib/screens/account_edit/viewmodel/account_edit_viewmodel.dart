@@ -17,6 +17,10 @@ class AccountEditViewModel extends ChangeNotifier {
 
   bool get isNew => existing == null;
 
+  /// On a server the secret isn't sent back to the app: the field starts
+  /// empty, and leaving it empty keeps the stored one.
+  bool get keepsStoredSecret => existing != null && existing!.apiSecret.isEmpty;
+
   bool _showSecret = false;
   bool get showSecret => _showSecret;
 

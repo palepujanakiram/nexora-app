@@ -24,8 +24,9 @@ into orders on any number of **Zerodha (Kite Connect)**, **Upstox** and **Groww*
 - **Paper mode by default:** new accounts simulate orders. When logged in, paper trades still look up the real contract and lot size.
 - **Live orders with a confirmation:** a LIMIT entry and, for Zerodha and Upstox, a stop loss and target managed by the broker (GTT).
 - **Activity log** of every execution, with order IDs or errors.
+- **Optional server mode:** connect to your own [nexora-backend](https://github.com/palepujanakiram/nexora-backend) so every device shares the same accounts and orders go out from one static IP. A signal already placed from another device is caught before it's placed twice.
 - **Secure key storage** (Keychain on iOS, Keystore-encrypted on Android).
-- **Settings:** theme colour, entry price within the range, exit orders, target choice, and a web CORS proxy with a built-in setup guide and health check.
+- **Settings:** server connection, theme colour, entry price within the range, exit orders, target choice, and a web CORS proxy with a built-in setup guide and health check.
 
 ## Supported brokers
 
@@ -69,7 +70,7 @@ The app has four tabs: **Signal**, **Accounts**, **Activity** and **Settings**. 
 
 | | |
 |---|---|
-| <img src="docs/screenshots/settings.jpg" width="260" alt="Settings"> | <ul><li>**Theme colour**: eleven colours, saved on the device.</li><li>**Limit price within the entry range**: low end, middle or high end (for `AT 400-420`: 400, 410 or 420).</li><li>**Exit orders**: entry only, or entry + stop loss & target (GTT). Groww always places the entry only.</li><li>**Target used for the GTT exit**: TGT1–TGT3; falls back to the last target if the signal has fewer.</li><li>**Web CORS proxy** (web only, see below).</li></ul> |
+| <img src="docs/screenshots/settings.jpg" width="260" alt="Settings"> | <ul><li>**Server**: connect to your nexora-backend (see [Server mode](#server-mode-one-static-ip-for-every-device)).</li><li>**Theme colour**: eleven colours, saved on the device.</li><li>**Limit price within the entry range**: low end, middle or high end (for `AT 400-420`: 400, 410 or 420).</li><li>**Exit orders**: entry only, or entry + stop loss & target (GTT). Groww always places the entry only.</li><li>**Target used for the GTT exit**: TGT1–TGT3; falls back to the last target if the signal has fewer.</li><li>**Web CORS proxy** (web only, see below; hidden while connected to a server).</li></ul> |
 | <img src="docs/screenshots/proxy-guide.jpg" width="260" alt="Cloudflare Worker proxy guide"> | **Web only.** Browsers block direct calls to the broker APIs, so the web build needs your own proxy. **How to create the proxy** walks you through a free Cloudflare Worker in four steps: **Copy proxy code** copies the worker (or **View code** shows it to select by hand), and the links open Cloudflare's dashboard and docs.<br><br>**Test proxy** checks the URL and tells you whether it's connected, rejecting this app's address, not the NexoraApp proxy, or unreachable. |
 
 ## Signal format
@@ -98,6 +99,24 @@ API keys, secrets and access tokens are stored only through `flutter_secure_stor
 - **Web**: encrypted with WebCrypto, but the key lives in the same browser profile. Treat web as convenience only and prefer the mobile apps for live trading accounts.
 
 Settings and the activity log are kept in `shared_preferences`.
+
+In server mode the broker secrets and access tokens live on the server instead, encrypted at rest. The device keeps only its server sign-in token in secure storage, and the app sees just a masked API key. See [Server mode](#server-mode-one-static-ip-for-every-device).
+
+## Server mode: one static IP for every device
+
+Brokers accept API orders only from the static IP registered with them. With several phones, tablets or a browser, each device would need that IP. [nexora-backend](https://github.com/palepujanakiram/nexora-backend) solves this: the app talks to your server, and the server talks to the brokers from its one static IP.
+
+1. Deploy nexora-backend (its [Fly.io guide](https://github.com/palepujanakiram/nexora-backend/blob/main/docs/deploy-fly.md) takes about 15 minutes). The Mumbai region gives it a static egress IP.
+2. In the app: **Settings → Server → Connect to a server**. Enter the server address and your email and password. The first time, turn on **I'm new** and enter the invite code (the server's `SIGNUP_CODE`).
+3. Tap **Show server IP** and register that IP with Zerodha, Upstox and Groww.
+4. Add your accounts and log in to the brokers as usual. Each account is now stored on the server and shared by all your devices. One broker login per day covers every device.
+
+While connected:
+
+- **Signal**, **Accounts** and **Activity** work the same, but the server places the orders and keeps the activity log for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
+- **Duplicate guard:** if the same signal was already placed on an account in the last 15 minutes (say, from another phone), the server refuses it. The result offers **Place anyway** for a deliberate repeat.
+- The web CORS proxy isn't used. The web build works if the server's `CORS_ORIGINS` lists its address.
+- **Disconnect** (Settings → Server) returns the app to the accounts stored on the device. Nothing on the server is deleted.
 
 ## Getting started
 
@@ -141,8 +160,8 @@ Each guide goes through the same six parts:
 
 Key points before going live:
 
-- **Use the phone app.** The web version can log in and paper trade, but it can't place orders: browsers need the CORS proxy, which blocks orders, and Cloudflare's addresses aren't static.
-- **A static IP is required for API orders** under SEBI's rules (Zerodha has enforced it since 1 April 2025, Upstox since 1 April 2026; check Groww's requirement on its API keys page). Get one from your broadband provider or a VPN with a dedicated IP, and register it on the broker's developer site.
+- **Use the phone app, or server mode.** On its own, the web version can log in and paper trade, but it can't place orders: browsers need the CORS proxy, which blocks orders, and Cloudflare's addresses aren't static. In [server mode](#server-mode-one-static-ip-for-every-device) every device, the web included, places orders through the server.
+- **A static IP is required for API orders** under SEBI's rules (Zerodha has enforced it since 1 April 2025, Upstox since 1 April 2026, and Groww asks for one on its API keys page). Use [server mode](#server-mode-one-static-ip-for-every-device) so every device shares the server's IP, or get one from your broadband provider or a VPN with a dedicated IP. Register it on the broker's developer site.
 - **Zerodha:** choose the paid **Connect** plan (₹500/month). The free Personal plan has no market data, which the app needs to find contracts.
 - **Upstox:** only index options are supported for now (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX).
 - **Groww:** needs a Trading APIs subscription. NexoraApp places the entry only; add the stop loss and target in the Groww app after it fills.

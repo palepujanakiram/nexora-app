@@ -5,7 +5,22 @@ import 'package:nexora_app/common/data/repositories/activity_repository_impl.dar
 import 'package:nexora_app/common/data/repositories/broker_repository_impl.dart';
 import 'package:nexora_app/common/data/repositories/proxy_repository_impl.dart';
 import 'package:nexora_app/common/data/repositories/settings_repository_impl.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:nexora_app/common/data/repositories/server/server_account_repository.dart';
+import 'package:nexora_app/common/data/repositories/server/server_activity_repository.dart';
+import 'package:nexora_app/common/data/repositories/server/server_broker_repository.dart';
+import 'package:nexora_app/common/data/repositories/server/server_signal_execution_repository.dart';
+import 'package:nexora_app/common/data/repositories/server_repository_impl.dart';
 import 'package:nexora_app/common/di/injector.dart';
+import 'package:nexora_app/common/domain/entities/server_session.dart';
+import 'package:nexora_app/common/domain/repositories/server_repository.dart';
+import 'package:nexora_app/common/domain/repositories/signal_execution_repository.dart';
+import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/connect_server_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/disconnect_server_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/repositories/account_repository.dart';
 import 'package:nexora_app/common/domain/repositories/activity_repository.dart';
@@ -77,6 +92,11 @@ void main() {
       () => sl<UpdateSettingsUseCase>(),
       () => sl<GetProxyWorkerScriptUseCase>(),
       () => sl<TestProxyUseCase>(),
+      () => sl<SyncFromServerUseCase>(),
+      () => sl<WatchServerUseCase>(),
+      () => sl<ConnectServerUseCase>(),
+      () => sl<DisconnectServerUseCase>(),
+      () => sl<GetServerIpUseCase>(),
     ];
     for (final resolve in resolvers) {
       final a = resolve();
@@ -93,5 +113,41 @@ void main() {
   test('calling it twice without a reset fails (singletons are registered once)', () async {
     await configureDependencies();
     await expectLater(configureDependencies(), throwsA(anything));
+  });
+
+  test('without a server, nothing is placed remotely', () async {
+    await configureDependencies();
+    expect(sl<ServerRepository>(), isA<ServerRepositoryImpl>());
+    expect(sl<ServerRepository>().current, isNull);
+    expect(sl.isRegistered<SignalExecutionRepository>(), isFalse);
+    expect(sl<ExecuteSignalUseCase>().remote, isNull);
+  });
+
+  test('a saved server session puts accounts, logins, orders and activity on the server', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'server_session_v1': '{"url":"https://srv.test","token":"tok","email":"me@x.com"}',
+      'broker_accounts_v1': '[{"id":"a1","broker":"upstox","label":"Mine","apiKey":"k","apiSecret":"s"}]',
+    });
+    final client = MockClient((_) async => http.Response('{"accounts":[]}', 200));
+    final generation = dataGeneration.value;
+    await configureDependencies(httpClient: client);
+
+    expect(sl<ServerRepository>().current?.email, 'me@x.com');
+    expect(sl<AccountRepository>(), isA<ServerAccountRepository>());
+    expect(sl<ActivityRepository>(), isA<ServerActivityRepository>());
+    expect(sl<BrokerRepository>(), isA<ServerBrokerRepository>());
+    expect(sl<SignalExecutionRepository>(), isA<ServerSignalExecutionRepository>());
+    expect(sl<ExecuteSignalUseCase>().remote, isNotNull);
+    expect(dataGeneration.value, generation + 1);
+
+    // Leaving the server brings back what's stored on this device.
+    await sl<SwitchDataSource>()(null);
+    expect(sl<AccountRepository>(), isA<AccountRepositoryImpl>());
+    expect(sl<AccountRepository>().current.single.label, 'Mine');
+    expect(sl.isRegistered<SignalExecutionRepository>(), isFalse);
+    expect(dataGeneration.value, generation + 2);
+
+    await sl<SwitchDataSource>()(const ServerSession(url: 'https://srv.test', token: 't', email: 'e'));
+    expect(sl<AccountRepository>(), isA<ServerAccountRepository>());
   });
 }

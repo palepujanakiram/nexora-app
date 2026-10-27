@@ -41,4 +41,11 @@ void main() {
       await expectLater(ds.readJson('k'), throwsFormatException);
     });
   });
+
+  test('delete removes a stored value', () async {
+    final ds = SecureStorageDataSource();
+    await ds.writeJson('k', 1);
+    await ds.delete('k');
+    expect(await ds.readJson('k'), isNull);
+  });
 }

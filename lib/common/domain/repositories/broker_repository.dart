@@ -5,6 +5,10 @@ import '../entities/trade_signal.dart';
 
 /// Talks to whichever broker an account belongs to.
 abstract interface class BrokerRepository {
+  /// Whether the user may paste an access token they made elsewhere. Not when
+  /// a server holds the tokens.
+  bool get acceptsAccessTokens;
+
   /// URL the user opens to log in and authorise the app for today.
   String loginUrl(BrokerAccount account);
 

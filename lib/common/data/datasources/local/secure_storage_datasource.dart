@@ -28,4 +28,6 @@ class SecureStorageDataSource {
   }
 
   Future<void> writeJson(String key, Object value) => _storage.write(key: key, value: jsonEncode(value));
+
+  Future<void> delete(String key) => _storage.delete(key: key);
 }

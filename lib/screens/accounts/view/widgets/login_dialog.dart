@@ -142,10 +142,11 @@ class _LoginBodyState extends State<_LoginBody> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: state.busy ? null : () => _submit(vm.useAccessToken),
-          child: const Text('It is an access token'),
-        ),
+        if (state.acceptsAccessToken)
+          TextButton(
+            onPressed: state.busy ? null : () => _submit(vm.useAccessToken),
+            child: const Text('It is an access token'),
+          ),
         FilledButton(
           onPressed: state.busy ? null : () => _submit(vm.loginWithRedirect),
           child: state.busy

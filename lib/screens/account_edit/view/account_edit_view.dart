@@ -96,12 +96,13 @@ class _AccountEditBodyState extends State<_AccountEditBody> {
                   obscureText: !vm.showSecret,
                   decoration: InputDecoration(
                     labelText: guide.apiSecretLabel,
+                    helperText: vm.keepsStoredSecret ? 'Saved on the server. Leave empty to keep it.' : null,
                     suffixIcon: IconButton(
                       icon: Icon(vm.showSecret ? Icons.visibility_off : Icons.visibility),
                       onPressed: vm.toggleShowSecret,
                     ),
                   ),
-                  validator: AccountForm.required,
+                  validator: vm.keepsStoredSecret ? null : AccountForm.required,
                   onChanged: (v) => vm.update((f) => f.copyWith(apiSecret: v)),
                 ),
                 // Keyed so adding/removing this field doesn't hand its state to

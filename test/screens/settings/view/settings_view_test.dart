@@ -3,12 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/usecases/watch_settings_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/connect_server_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/disconnect_server_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_proxy_worker_script_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/test_proxy_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/update_settings_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
 import 'package:nexora_app/screens/settings/view/settings_view.dart';
 import 'package:nexora_app/screens/settings/view/widgets/cors_proxy_help.dart';
 import 'package:nexora_app/screens/settings/view/widgets/theme_color_picker.dart';
+
+import 'package:nexora_app/common/domain/entities/server_session.dart';
+import 'package:nexora_app/screens/settings/view/widgets/server_section.dart';
 
 import '../../../fakes.dart';
 import '../fake_proxy_repository.dart';
@@ -16,12 +23,19 @@ import '../fake_proxy_repository.dart';
 void main() {
   late FakeSettingsRepository settings;
   late FakeProxyRepository proxy;
+  late FakeServerRepository server;
 
   Future<void> register([AppSettings initial = const AppSettings()]) async {
     settings = FakeSettingsRepository(initial);
     proxy = FakeProxyRepository();
+    server = FakeServerRepository();
     await sl.reset();
+    Future<void> noSwitch(_) async {}
     sl
+      ..registerFactory(() => WatchServerUseCase(server))
+      ..registerFactory(() => ConnectServerUseCase(server, noSwitch))
+      ..registerFactory(() => DisconnectServerUseCase(server, noSwitch))
+      ..registerFactory(() => GetServerIpUseCase(server))
       ..registerFactory(() => WatchSettingsUseCase(settings))
       ..registerFactory(() => UpdateSettingsUseCase(settings))
       ..registerFactory(() => GetProxyWorkerScriptUseCase(proxy))
@@ -146,5 +160,16 @@ void main() {
     expect(settings.current.corsProxy, 'https://w.example');
     expect(find.text('Connected. Order placement is blocked on this proxy (safe for paper trading).'),
         findsOneWidget);
+  });
+
+  testWidgets('shows the server section first, and hides the proxy while connected', (tester) async {
+    await pumpView(tester);
+    expect(find.byType(ServerSection), findsOneWidget);
+    expect(find.text('Web CORS proxy'), findsOneWidget);
+
+    server = FakeServerRepository(const ServerSession(url: 'https://srv.test', token: 't', email: 'me@x.com'));
+    await pumpView(tester);
+    expect(find.text('Signed in as me@x.com'), findsOneWidget);
+    expect(find.text('Web CORS proxy'), findsNothing);
   });
 }

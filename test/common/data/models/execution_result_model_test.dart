@@ -16,6 +16,7 @@ void main() {
       quantity: 40,
       entryPrice: 410.5,
       orders: const [PlacedOrder('ENTRY', '1'), PlacedOrder('GTT OCO', '2')],
+      accountId: 'acc1',
     );
     expect(ExecutionResultModel.toJson(r), {
       'accountLabel': 'A',
@@ -31,6 +32,8 @@ void main() {
         {'kind': 'GTT OCO', 'id': '2'},
       ],
       'error': null,
+      'accountId': 'acc1',
+      'errorCode': null,
     });
   });
 
@@ -51,7 +54,8 @@ void main() {
     expect(back.broker, 'Upstox');
     expect(back.signalText, 's');
     expect(back.paper, isFalse);
-    expect(back.time, time);
+    expect(back.time.isAtSameMomentAs(time), isTrue);
+    expect(back.time.isUtc, isFalse, reason: 'shown in local time');
     expect(back.symbol, 'SYM');
     expect(back.quantity, 20);
     expect(back.entryPrice, 400.0);
@@ -88,5 +92,25 @@ void main() {
     expect(back.orders, isEmpty);
     expect(back.error, 'Token expired');
     expect(back.success, isFalse);
+  });
+
+  test("fromJson reads the server's account id and duplicate error code", () {
+    final back = ExecutionResultModel.fromJson({
+      'accountId': 'acc1',
+      'accountLabel': 'A',
+      'broker': 'Upstox',
+      'signalText': 's',
+      'paper': false,
+      'time': '2026-10-27T04:00:00.000Z',
+      'orders': [],
+      'error': 'Already placed on this account at 09:30 IST',
+      'errorCode': 'duplicate',
+      'success': false,
+    });
+    expect(back.accountId, 'acc1');
+    expect(back.errorCode, 'duplicate');
+    expect(back.isDuplicate, isTrue);
+    expect(ExecutionResultModel.fromJson({...ExecutionResultModel.toJson(back), 'errorCode': 'in_flight'}).isDuplicate,
+        isFalse);
   });
 }

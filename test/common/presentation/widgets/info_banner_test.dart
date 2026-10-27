@@ -18,4 +18,20 @@ void main() {
     expect(box.padding, const EdgeInsets.all(12));
     expect(tester.getSize(find.byType(InfoBanner)).width, tester.view.physicalSize.width / tester.view.devicePixelRatio);
   });
+
+  testWidgets('shows an optional action at the end', (tester) async {
+    var tapped = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: InfoBanner(
+          text: 'Offline',
+          color: Colors.red,
+          action: TextButton(onPressed: () => tapped++, child: const Text('Retry')),
+        ),
+      ),
+    ));
+    expect(find.text('Offline'), findsOneWidget);
+    await tester.tap(find.text('Retry'));
+    expect(tapped, 1);
+  });
 }

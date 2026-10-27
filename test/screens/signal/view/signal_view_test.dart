@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
 import 'package:nexora_app/common/domain/entities/execution_result.dart';
+import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/entities/trade_plan.dart';
+import 'package:nexora_app/common/domain/entities/trade_signal.dart';
+import 'package:nexora_app/common/domain/repositories/signal_execution_repository.dart';
 import 'package:nexora_app/common/domain/services/signal_parser.dart';
 import 'package:nexora_app/common/domain/usecases/watch_accounts_usecase.dart';
 import 'package:nexora_app/common/domain/usecases/watch_settings_usecase.dart';
@@ -29,6 +32,31 @@ class _GatedBrokerRepository extends FakeBrokerRepository {
   }
 }
 
+/// A server that refuses the first send as a duplicate and places it when forced.
+class _DuplicateServer implements SignalExecutionRepository {
+  final sends = <(Set<String>, bool)>[];
+
+  @override
+  Future<List<ExecutionResult>> execute(TradeSignal signal, Set<String> accountIds, AppSettings settings,
+      {bool allowDuplicate = false}) async {
+    sends.add((accountIds, allowDuplicate));
+    return [
+      for (final id in accountIds)
+        ExecutionResult(
+          accountLabel: 'Test $id',
+          broker: 'Zerodha',
+          signalText: signal.raw,
+          paper: false,
+          time: DateTime.utc(2026),
+          accountId: id,
+          error: allowDuplicate ? null : 'Already placed on this account at 09:30 IST',
+          errorCode: allowDuplicate ? null : 'duplicate',
+          orders: allowDuplicate ? const [PlacedOrder('ENTRY', 'O1')] : const [],
+        ),
+    ];
+  }
+}
+
 void main() {
   const valid = 'BUY SENSEX 29 OCT 2026 73100 PUT AT 400-420 WITH SL OF 300 TGT1 540, TGT2 600';
 
@@ -36,7 +64,11 @@ void main() {
   late FakeBrokerRepository brokers;
   late FakeActivityRepository activity;
 
-  Future<void> register({List<BrokerAccount> initial = const [], FakeBrokerRepository? broker}) async {
+  Future<void> register({
+    List<BrokerAccount> initial = const [],
+    FakeBrokerRepository? broker,
+    SignalExecutionRepository? remote,
+  }) async {
     accounts = FakeAccountRepository(initial);
     brokers = broker ?? FakeBrokerRepository();
     activity = FakeActivityRepository();
@@ -44,7 +76,7 @@ void main() {
     await sl.reset();
     sl
       ..registerFactory(() => ParseSignalUseCase(SignalParser(clock: () => DateTime(2026, 10, 27))))
-      ..registerFactory(() => ExecuteSignalUseCase(brokers, accounts, settings, activity))
+      ..registerFactory(() => ExecuteSignalUseCase(brokers, accounts, settings, activity, remote: remote))
       ..registerFactory(() => WatchAccountsUseCase(accounts))
       ..registerFactory(() => WatchSettingsUseCase(settings));
   }
@@ -307,5 +339,24 @@ void main() {
       expect(tester.widget<ListView>(find.byType(ListView).first).keyboardDismissBehavior,
           ScrollViewKeyboardDismissBehavior.onDrag);
     });
+  });
+
+  testWidgets('a signal the server already placed can be placed anyway', (tester) async {
+    final server = _DuplicateServer();
+    await register(initial: [testAccount()], remote: server);
+    await pumpView(tester);
+    await parse(tester, valid);
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Place orders'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Already placed on this account'), findsOneWidget);
+    await tester.tap(find.text('Place anyway on 1 account(s)'));
+    await tester.pumpAndSettle();
+
+    expect(server.sends.map((s) => '${s.$1.join(',')} ${s.$2}'), ['a false', 'a true']);
+    expect(find.textContaining('ENTRY: O1'), findsOneWidget);
+    expect(find.text('Place anyway on 1 account(s)'), findsNothing);
   });
 }

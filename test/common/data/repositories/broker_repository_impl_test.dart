@@ -66,6 +66,10 @@ void main() {
     );
   });
 
+  test('lets the user paste access tokens on this device', () {
+    expect(repo.acceptsAccessTokens, isTrue);
+  });
+
   test('loginUrl routes to the account broker', () {
     expect(repo.loginUrl(_zerodha), 'https://kite.zerodha.com/connect/login?v=3&api_key=k');
     expect(Uri.parse(repo.loginUrl(_upstox)).path, '/v2/login/authorization/dialog');

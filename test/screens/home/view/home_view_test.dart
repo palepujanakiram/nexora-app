@@ -13,15 +13,36 @@ import 'package:nexora_app/screens/activity/usecase/watch_activity_usecase.dart'
 import 'package:nexora_app/screens/activity/view/activity_view.dart';
 import 'package:nexora_app/screens/home/model/home_tab.dart';
 import 'package:nexora_app/screens/home/view/home_view.dart';
+import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/connect_server_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/disconnect_server_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_proxy_worker_script_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/test_proxy_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/update_settings_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
 import 'package:nexora_app/screens/settings/view/settings_view.dart';
 import 'package:nexora_app/screens/signal/usecase/execute_signal_usecase.dart';
 import 'package:nexora_app/screens/signal/usecase/parse_signal_usecase.dart';
 import 'package:nexora_app/screens/signal/view/signal_view.dart';
 
+import 'package:nexora_app/common/domain/repositories/refreshable.dart';
+import 'package:nexora_app/common/presentation/widgets/info_banner.dart';
+import 'package:nexora_app/screens/signal/viewmodel/signal_viewmodel.dart';
+import 'package:provider/provider.dart';
+
 import '../../../fakes.dart';
+
+class _Flaky implements Refreshable {
+  String? error;
+  var calls = 0;
+
+  @override
+  Future<void> refresh() async {
+    calls++;
+    if (error != null) throw Exception(error);
+  }
+}
 
 class _FakeProxyRepository implements ProxyRepository {
   @override
@@ -38,8 +59,15 @@ void main() {
     final activity = FakeActivityRepository();
     final broker = FakeBrokerRepository();
     final proxy = _FakeProxyRepository();
+    final server = FakeServerRepository();
+    Future<void> noSwitch(_) async {}
     sl
       ..reset()
+      ..registerFactory(() => SyncFromServerUseCase([accounts, activity]))
+      ..registerFactory(() => WatchServerUseCase(server))
+      ..registerFactory(() => ConnectServerUseCase(server, noSwitch))
+      ..registerFactory(() => DisconnectServerUseCase(server, noSwitch))
+      ..registerFactory(() => GetServerIpUseCase(server))
       ..registerFactory(() => WatchAccountsUseCase(accounts))
       ..registerFactory(() => WatchSettingsUseCase(settings))
       ..registerFactory(() => ParseSignalUseCase(SignalParser()))
@@ -104,5 +132,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(stackIndex(tester), 0);
     expect(find.text('Broker accounts'), findsNothing);
+  });
+
+  testWidgets('shows a failed server sync with Retry, and clears it once it works', (tester) async {
+    final flaky = _Flaky()..error = 'offline';
+    sl
+      ..unregister<SyncFromServerUseCase>()
+      ..registerFactory(() => SyncFromServerUseCase([flaky]));
+    await pumpView(tester);
+    expect(find.text('Couldn\'t load from the server: Exception: offline'), findsOneWidget);
+
+    flaky.error = null;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InfoBanner), findsNothing);
+    expect(flaky.calls, 2);
+  });
+
+  testWidgets('switching where the data lives rebuilds the screens and syncs', (tester) async {
+    final flaky = _Flaky();
+    sl
+      ..unregister<SyncFromServerUseCase>()
+      ..registerFactory(() => SyncFromServerUseCase([flaky]));
+    await pumpView(tester);
+    final before = Provider.of<SignalViewModel>(tester.element(find.byType(ListView).first), listen: false);
+
+    dataGeneration.value++;
+    await tester.pumpAndSettle();
+    final after = Provider.of<SignalViewModel>(tester.element(find.byType(ListView).first), listen: false);
+    expect(identical(before, after), isFalse, reason: 'view models are rebuilt on the new repositories');
+    expect(flaky.calls, 2);
   });
 }

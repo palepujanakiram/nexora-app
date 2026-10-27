@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 import '../../../common/di/injector.dart';
 import '../../../common/domain/entities/app_settings.dart';
 import '../model/settings_state.dart';
+import '../viewmodel/server_viewmodel.dart';
 import '../viewmodel/settings_viewmodel.dart';
 import 'widgets/cors_proxy_help.dart';
 import 'widgets/proxy_test_row.dart';
+import 'widgets/server_section.dart';
 import 'widgets/theme_color_picker.dart';
 
 class SettingsView extends StatelessWidget {
@@ -17,8 +19,11 @@ class SettingsView extends StatelessWidget {
   final bool isWeb;
 
   @override
-  Widget build(BuildContext context) => ChangeNotifierProvider(
-        create: (_) => SettingsViewModel(sl(), sl(), sl(), sl(), isWeb: isWeb),
+  Widget build(BuildContext context) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => SettingsViewModel(sl(), sl(), sl(), sl(), isWeb: isWeb)),
+          ChangeNotifierProvider(create: (_) => ServerViewModel(sl(), sl(), sl(), sl())),
+        ],
         child: const _SettingsBody(),
       );
 }
@@ -68,11 +73,14 @@ class _SettingsBodyState extends State<_SettingsBody> {
     final state = vm.state;
     final s = state.settings;
     final theme = Theme.of(context);
+    final connected = context.select<ServerViewModel, bool>((s) => s.state.connected);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text('Settings', style: theme.textTheme.headlineSmall),
         const SizedBox(height: 16),
+        const ServerSection(),
+        const Divider(height: 40),
         Text('Theme colour', style: theme.textTheme.titleSmall),
         const SizedBox(height: 12),
         ThemeColorPicker(selected: s.themeColor, onSelected: vm.setThemeColor),
@@ -109,32 +117,37 @@ class _SettingsBodyState extends State<_SettingsBody> {
           const SizedBox(height: 4),
           Text('Falls back to the last target if the signal has fewer.', style: theme.textTheme.bodySmall),
         ],
-        const SizedBox(height: 24),
-        Text('Web CORS proxy', style: theme.textTheme.titleSmall),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _proxy,
-          decoration: InputDecoration(
-            border: const OutlineInputBorder(),
-            hintText: 'https://nexora-cors-proxy.<you>.workers.dev',
-            helperText: state.isWeb
-                ? 'Browsers block direct calls to broker APIs, so the web app needs your own proxy.'
-                : 'Not needed on iOS/Android — leave empty.',
-            helperMaxLines: 3,
-          ),
-          onSubmitted: vm.setCorsProxy,
-          onTapOutside: (_) => vm.setCorsProxy(_proxy.text),
-        ),
-        if (state.isWeb) ...[
-          const SizedBox(height: 12),
-          ProxyTestRow(state: state, onTest: () => vm.testProxy(_proxy.text)),
-          const SizedBox(height: 16),
-          CorsProxyHelp(
-            loadWorkerScript: vm.workerScript,
-            initiallyExpanded: s.corsProxy.isEmpty,
-          ),
-        ],
+        // A connected server reaches the brokers itself; the proxy isn't used.
+        if (!connected) ..._proxySection(vm, state, theme),
       ],
     );
+  }
+
+  List<Widget> _proxySection(SettingsViewModel vm, SettingsState state, ThemeData theme) {
+    final s = state.settings;
+    return [
+      const SizedBox(height: 24),
+      Text('Web CORS proxy', style: theme.textTheme.titleSmall),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _proxy,
+        decoration: InputDecoration(
+          border: const OutlineInputBorder(),
+          hintText: 'https://nexora-cors-proxy.<you>.workers.dev',
+          helperText: state.isWeb
+              ? 'Browsers block direct calls to broker APIs, so the web app needs your own proxy.'
+              : 'Not needed on iOS/Android — leave empty.',
+          helperMaxLines: 3,
+        ),
+        onSubmitted: vm.setCorsProxy,
+        onTapOutside: (_) => vm.setCorsProxy(_proxy.text),
+      ),
+      if (state.isWeb) ...[
+        const SizedBox(height: 12),
+        ProxyTestRow(state: state, onTest: () => vm.testProxy(_proxy.text)),
+        const SizedBox(height: 16),
+        CorsProxyHelp(loadWorkerScript: vm.workerScript, initiallyExpanded: s.corsProxy.isEmpty),
+      ],
+    ];
   }
 }

@@ -168,4 +168,16 @@ void main() {
     expect(find.text('open'), findsOneWidget);
     expect(find.text('Edit account'), findsNothing);
   });
+
+  testWidgets('a server account keeps its stored secret when the field is left empty', (tester) async {
+    final serverAccount = testAccount(id: 's').copyWith(apiKey: 'upke••••34', apiSecret: '');
+    accounts = FakeAccountRepository([serverAccount]);
+    await open(tester, serverAccount);
+    expect(find.text('Saved on the server. Leave empty to keep it.'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Required'), findsNothing);
+    expect(accounts.current.single.apiSecret, '', reason: 'empty means "keep" to the server');
+    expect(accounts.current.single.apiKey, 'upke••••34');
+  });
 }

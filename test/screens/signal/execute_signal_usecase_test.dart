@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
+import 'package:nexora_app/common/domain/entities/execution_result.dart';
+import 'package:nexora_app/common/domain/entities/trade_signal.dart';
+import 'package:nexora_app/common/domain/repositories/signal_execution_repository.dart';
 import 'package:nexora_app/common/domain/services/signal_parser.dart';
 import 'package:nexora_app/screens/signal/usecase/execute_signal_usecase.dart';
 
@@ -58,4 +61,47 @@ void main() {
     expect(brokers.placed.single.hasExits, isFalse);
     expect(brokers.placed.single.entryPrice, 420);
   });
+
+  test('every result names the account it ran on', () async {
+    final execute = build([testAccount(paper: true)]);
+    final [r] = await execute(signal, {'a'});
+    expect(r.accountId, 'a');
+  });
+
+  test('with a server, the server places the signal and its results are logged', () async {
+    final remote = _RecordingRemote();
+    activity = FakeActivityRepository();
+    brokers = FakeBrokerRepository();
+    final execute = ExecuteSignalUseCase(
+      brokers,
+      FakeAccountRepository([testAccount()]),
+      FakeSettingsRepository(const AppSettings(entryPriceMode: EntryPriceMode.low)),
+      activity,
+      remote: remote,
+    );
+    final results = await execute(signal, {'a'}, allowDuplicate: true);
+    expect(brokers.placed, isEmpty, reason: 'nothing is placed from this device');
+    expect(remote.calls.single, ('a', EntryPriceMode.low, true));
+    expect(activity.current, results);
+  });
+}
+
+class _RecordingRemote implements SignalExecutionRepository {
+  final calls = <(String, EntryPriceMode, bool)>[];
+
+  @override
+  Future<List<ExecutionResult>> execute(TradeSignal signal, Set<String> accountIds, AppSettings settings,
+      {bool allowDuplicate = false}) async {
+    calls.add((accountIds.join(','), settings.entryPriceMode, allowDuplicate));
+    return [
+      ExecutionResult(
+        accountLabel: 'Server',
+        broker: 'Zerodha',
+        signalText: signal.raw,
+        paper: false,
+        time: DateTime.utc(2026),
+        accountId: accountIds.first,
+      ),
+    ];
+  }
 }

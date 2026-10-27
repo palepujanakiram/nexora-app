@@ -29,6 +29,9 @@ class BrokerRepositoryImpl implements BrokerRepository {
   }
 
   @override
+  bool get acceptsAccessTokens => true;
+
+  @override
   String loginUrl(BrokerAccount account) => _api(account).loginUrl();
 
   @override

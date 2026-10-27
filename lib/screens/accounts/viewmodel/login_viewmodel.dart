@@ -16,6 +16,7 @@ class LoginViewModel extends ChangeNotifier {
             BrokerType.groww => 'TOTP code',
           },
           redirectLogin: account.broker != BrokerType.groww,
+          acceptsAccessToken: getLoginUrl.acceptsAccessTokens,
         );
 
   final BrokerAccount account;

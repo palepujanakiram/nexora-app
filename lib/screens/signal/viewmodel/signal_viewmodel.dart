@@ -43,12 +43,15 @@ class SignalViewModel extends ChangeNotifier {
   void setSelected(String accountId, bool selected) =>
       _emit(_state.copyWith(selectionOverrides: {..._state.selectionOverrides, accountId: selected}));
 
-  Future<List<ExecutionResult>> execute() async {
+  /// Places the signal on the chosen accounts, or only on [accountIds] (e.g.
+  /// the ones the server refused as duplicates, with [allowDuplicate]).
+  Future<List<ExecutionResult>> execute({Set<String>? accountIds, bool allowDuplicate = false}) async {
     final signal = _state.signal;
     if (signal == null || !_state.canExecute) return const [];
     _emit(_state.copyWith(busy: true));
     try {
-      return await _execute(signal, _state.chosen.map((a) => a.id).toSet());
+      return await _execute(signal, accountIds ?? _state.chosen.map((a) => a.id).toSet(),
+          allowDuplicate: allowDuplicate);
     } finally {
       _emit(_state.copyWith(busy: false));
     }
