@@ -111,67 +111,26 @@ cd proxy/cloudflare-worker && npm run coverage   # worker tests + 95% gate
 
 ## Testing with the real Zerodha and Upstox APIs
 
-Test in three stages. Each stage uses more of the real API, and only the last one sends orders. Neither broker offers this app a sandbox, so everything below talks to your real account.
+Step-by-step guides for each broker, written for non-programmers and with screenshots:
 
-> **Stay in paper mode until stages 1 and 2 work.** A paper account calls the broker only to log in and look up contracts. It never sends an order.
+- **[Zerodha (Kite Connect) guide](docs/zerodha-guide.md)**
+- **[Upstox guide](docs/upstox-guide.md)**
 
-### Before you start
+Each guide goes through the same six parts:
 
-1. **Create a developer app with each broker** (the in-app guide under **Accounts → Add account** links to both):
-   - **Zerodha:** [developers.kite.trade](https://developers.kite.trade/) → create an app. Set the redirect URL to something you can open, e.g. `https://127.0.0.1/`. Copy the API key and API secret.
-   - **Upstox:** [account.upstox.com/developer/apps](https://account.upstox.com/developer/apps) → create an app with the same kind of redirect URL. Copy the API key (client_id) and secret. In NexoraApp, the Redirect URI must match the app's redirect URL exactly.
-2. **Check the static IP rule before stage 3.** Under SEBI's retail algo-trading framework, brokers can require API orders to come from a static IP you've registered in their developer console. Orders from any other IP are rejected. Logging in and looking up contracts don't need it.
-3. **Pick where to run the app:**
-   - **Android or iOS (recommended):** calls the broker APIs directly, with no proxy.
-     ```bash
-     flutter run -d <device-id>      # flutter devices lists them
-     ```
-   - **Web:** browsers block direct calls to the broker APIs, so set up the CORS proxy first (**Settings → Web CORS proxy**, see the guide in the app). The proxy blocks orders by default, and Cloudflare's IPs aren't static, so on web you can only do stages 1 and 2.
+| Part | What you do | Sends real orders? |
+|---|---|---|
+| 1. Get ready | F&O enabled on your broker account, NexoraApp on your phone | No |
+| 2. Create the broker's API app | Get an API key and secret from the broker's developer site | No |
+| 3. Add the account in NexoraApp | Enter the key and secret; **Paper mode** stays on | No |
+| 4. Log in (every trading day) | **Login → Open login page**, sign in, paste the address you land on, **Generate session** | No |
+| 5. Paper trade | Run a signal for a real contract: the app looks up the real contract and lot size but places nothing | No |
+| 6. Live trade | Register a static IP, turn **Paper mode** off, confirm **Place LIVE orders?**, then check the order in the broker's app | **Yes** |
 
-### Stage 1: log in
+Key points before going live:
 
-1. **Accounts → Add account**: choose the broker, enter the API key and secret (plus the redirect URI for Upstox), and leave **Paper mode on**. Save.
-2. On the account card, tap **Login → Open login page** and sign in to the broker in the browser.
-3. You land on your redirect URL, e.g. `https://127.0.0.1/?request_token=…` (Zerodha) or `https://127.0.0.1/?code=…` (Upstox). The page itself won't load; that's expected. Copy the full address from the browser's address bar.
-4. Paste it into the dialog and tap **Generate session**. The card should change to **Logged in**.
-
-The login code is single-use and expires within minutes, so paste it straight away. Sessions end every day (Zerodha at 06:00 IST, Upstox at 03:30 IST), so log in again each morning.
-
-### Stage 2: paper trade with real contract lookups
-
-When a paper account is logged in, the app looks up the real contract on the broker (Zerodha's instrument list, Upstox's option-contract API) but sends no orders.
-
-1. On the **Signal** tab, paste a signal for a **real upcoming expiry** and a strike that's listed, e.g. `BUY NIFTY <next expiry, e.g. 30 OCT> <listed strike> CE AT 100-110 WITH SL OF 80 TGT1 140`.
-2. Tick the logged-in paper account and run it ("Run paper trade?").
-3. Check the result card:
-   - the **trading symbol** is the broker's real one, not the plain signal text;
-   - the **quantity** is `lots × the broker's lot size`;
-   - the order IDs start with `PAPER-`.
-
-   If the contract isn't found, the expiry or strike isn't listed; check it in Kite or Upstox.
-
-Upstox lookups currently support indices only (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX).
-
-### Stage 3: one live order (Android/iOS, from your registered IP)
-
-The order calls follow the brokers' published docs but haven't yet been run against live accounts. Start with the smallest order you can afford to lose and watch the broker's own app the whole time.
-
-1. Edit the account: set **Lots per signal** to 1, choose the product (NRML or MIS), and turn **Paper mode off**. The card now shows **LIVE**.
-2. In **Settings**, choose the entry price (low / mid / high end of the range) and whether to place the stop loss and target (GTT).
-3. Run a signal on that account only. The confirmation reads **"Place LIVE orders?"** and says how many accounts will send real orders.
-4. Check in Kite or Upstox:
-   - **Zerodha:** a LIMIT entry in **Orders**, plus a two-leg (OCO) **GTT** for the stop loss and target, if enabled.
-   - **Upstox:** one **GTT** order with entry, target and stop-loss legs.
-5. Cancel anything you don't want to keep (pending orders, GTTs, open positions) in the broker's app. NexoraApp can't cancel orders.
-
-### Troubleshooting
-
-| What you see | Likely cause |
-|---|---|
-| "Session expired — log in to … first" | The account isn't logged in today. Log in again (stage 1). |
-| Error when generating the session | The code was already used or has expired, the API secret is wrong, or (Upstox) the redirect URI doesn't exactly match the app's. |
-| Zerodha `TokenException` / 403 | The access token is invalid or expired. Log in again. |
-| Contract not found | The expiry date or strike in the signal isn't listed. Check the exact contract in the broker's app. |
-| Order rejected about IP, or permission errors | The request didn't come from your registered static IP, or your developer app isn't enabled for orders. |
-| Web: requests fail or **Test proxy** fails | The proxy URL is wrong, or this app's address isn't in the Worker's `ALLOWED_ORIGINS`. |
-| Web: "Order placement is disabled on this proxy" | Expected: the proxy blocks orders. Use Android/iOS for live orders. |
+- **Use the phone app.** The web version can log in and paper trade, but it can't place orders: browsers need the CORS proxy, which blocks orders, and Cloudflare's addresses aren't static.
+- **A static IP is required for API orders** by both brokers (Zerodha since 1 April 2025, Upstox since 1 April 2026). Get one from your broadband provider or a VPN with a dedicated IP, and register it on the broker's developer site.
+- **Zerodha:** choose the paid **Connect** plan (₹500/month). The free Personal plan has no market data, which the app needs to find contracts.
+- **Upstox:** only index options are supported for now (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX).
+- The live order code follows each broker's published documentation but hasn't yet been run against a real account. Start with 1 lot, and cancel or exit trades in the broker's own app; NexoraApp only places orders.
