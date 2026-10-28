@@ -6,7 +6,7 @@ import '../repositories/server/fake_server.dart';
 
 void main() {
   test('fromJson maps the server view; the secret and token never arrive', () {
-    final a = ServerAccountModel.fromJson(accountJson(loggedIn: true, lots: 3));
+    final a = ServerAccountModel.fromJson(accountJson(loggedIn: true, lots: 3, issuedAt: '2026-10-27T04:00:00.000Z'));
     expect(a.id, 'acc1');
     expect(a.broker, BrokerType.upstox);
     expect(a.apiKey, 'upke••••34');

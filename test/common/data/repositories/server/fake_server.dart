@@ -38,6 +38,7 @@ Map<String, Object?> accountJson({
   bool loggedIn = false,
   bool paperMode = true,
   int lots = 1,
+  String? issuedAt,
 }) =>
     {
       'id': id,
@@ -51,7 +52,8 @@ Map<String, Object?> accountJson({
       'product': 'intraday',
       'paperMode': paperMode,
       'loggedIn': loggedIn,
-      'tokenIssuedAt': loggedIn ? '2026-10-27T04:00:00.000Z' : null,
+      // Issued now by default, so the session counts as today's whenever the tests run.
+      'tokenIssuedAt': loggedIn ? issuedAt ?? DateTime.now().toUtc().toIso8601String() : null,
       'login': {'kind': 'redirect', 'url': 'https://login.example/$id', 'codeParam': 'code', 'redirectUri': 'https://127.0.0.1/'},
     };
 
