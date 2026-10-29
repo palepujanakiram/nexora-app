@@ -46,7 +46,7 @@ class BrokerSetupGuide {
     steps: [
       'Sign in to the Kite Connect developer console with your Zerodha account.',
       'Create a new app. Enter your Zerodha client ID and any redirect URL you can open, '
-          'e.g. https://127.0.0.1/ — after logging in you will paste the page address back into NexoraApp.',
+          'e.g. https://127.0.0.1/ — after logging in you will paste the page address back into Srisarani Stocks.',
       'Open the app and copy its API key and API secret into the fields above.',
       'Check Kite Connect pricing and any static IP requirement for order placement on the developer site.',
     ],
@@ -67,7 +67,7 @@ class BrokerSetupGuide {
     steps: [
       'Sign in to Upstox and open My Account → Apps (developer apps page).',
       'Create a new app. Set a redirect URL you can open, e.g. https://127.0.0.1/ — '
-          'after logging in you will paste the page address back into NexoraApp.',
+          'after logging in you will paste the page address back into Srisarani Stocks.',
       'Copy the API key and API secret into the fields above, and enter the same redirect URL exactly.',
       'Check whether Upstox requires a static IP for placing orders through the API.',
     ],

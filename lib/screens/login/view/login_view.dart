@@ -84,7 +84,7 @@ class _LoginBodyState extends State<_LoginBody> {
                 children: [
                   Icon(Icons.candlestick_chart, size: 56, color: theme.colorScheme.primary),
                   const SizedBox(height: 12),
-                  Text('NexoraApp', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium),
+                  Text('Srisarani Stocks', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium),
                   const SizedBox(height: 4),
                   Text(
                     state.enteringCode ? 'Enter the code' : 'Sign in with your mobile number',

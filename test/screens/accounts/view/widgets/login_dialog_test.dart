@@ -232,7 +232,7 @@ void main() {
 
     testWidgets('offers Log in first, with the browser and paste flow as a fallback', (tester) async {
       await openDialog(tester, null, true);
-      expect(find.text('Sign in on the broker\'s page. NexoraApp picks up the login by itself.'), findsOneWidget);
+      expect(find.text('Sign in on the broker\'s page. Srisarani Stocks picks up the login by itself.'), findsOneWidget);
       expect(logInButton(), findsOneWidget);
       expect(find.text('Or log in in your browser:'), findsOneWidget);
       expect(find.text('Open in browser'), findsOneWidget);

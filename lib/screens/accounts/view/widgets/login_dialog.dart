@@ -89,7 +89,7 @@ class _LoginBodyState extends State<_LoginBody> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (inApp != null) ...[
-                const Text('Sign in on the broker\'s page. NexoraApp picks up the login by itself.'),
+                const Text('Sign in on the broker\'s page. Srisarani Stocks picks up the login by itself.'),
                 const SizedBox(height: 8),
                 FilledButton.icon(
                   onPressed: state.busy ? null : () => _loginInApp(vm, inApp),

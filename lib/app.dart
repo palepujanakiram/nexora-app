@@ -28,7 +28,7 @@ class _NexoraAppState extends State<NexoraApp> {
       builder: (context, snapshot) {
         final color = snapshot.data!.themeColor;
         return MaterialApp(
-          title: 'NexoraApp',
+          title: 'Srisarani Stocks',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(color),
           darkTheme: AppTheme.dark(color),

@@ -29,7 +29,7 @@ void main() {
     await tester.pump();
 
     final a = app(tester);
-    expect(a.title, 'NexoraApp');
+    expect(a.title, 'Srisarani Stocks');
     expect(a.debugShowCheckedModeBanner, isFalse);
     expect(a.theme!.colorScheme, AppTheme.light(ThemeColor.purple).colorScheme);
     expect(a.darkTheme!.colorScheme, AppTheme.dark(ThemeColor.purple).colorScheme);
