@@ -92,7 +92,7 @@ void main() {
     final vm = build();
     server.unknownPhones.add('+919030863940');
     expect(await vm.sendCode(url: 'u', mobile: '9030863940'), isFalse);
-    expect(vm.state.error, 'User not found.');
+    expect(vm.state.error, LoginViewModel.userNotFound);
     expect(vm.state.enteringCode, isFalse);
     vm.dispose();
   });

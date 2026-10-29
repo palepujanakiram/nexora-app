@@ -26,7 +26,8 @@ class LoginViewModel extends ChangeNotifier {
   bool _disposed = false;
 
   /// Shown when the server has no login for the number.
-  static const userNotFound = 'User not found.';
+  static const userNotFound =
+      'We couldn\'t find an account for this number. Check the number, or ask the app owner to give you access.';
 
   /// Texts a code to [mobile] and moves to the code step. Returns true once sent.
   Future<bool> sendCode({required String url, required String mobile}) async {

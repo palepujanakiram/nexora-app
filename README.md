@@ -108,7 +108,7 @@ Brokers accept API orders only from the static IP registered with them. With sev
 The app requires a sign-in with your mobile number: it opens on the login screen and nothing else is available until you're signed in.
 
 1. Deploy nexora-backend (its [Fly.io guide](https://github.com/palepujanakiram/nexora-backend/blob/main/docs/deploy-fly.md) takes about 15 minutes). The Mumbai region gives it a static egress IP.
-2. Set up MSG91 for the SMS codes (see the backend's Fly guide). Open the app, enter your 10-digit mobile number and tap **Send code**, then type the 6-digit code from the SMS (on iPhone it's offered above the keyboard). Your number must already have a login on the server; otherwise the app says **User not found.**
+2. Set up MSG91 for the SMS codes (see the backend's Fly guide). Open the app, enter your 10-digit mobile number and tap **Send code**, then type the 6-digit code from the SMS (on iPhone it's offered above the keyboard). Your number must already have a login on the server; otherwise the app says "We couldn't find an account for this number. Check the number, or ask the app owner to give you access."
 3. Tap **Settings → Server → Show server IP** and register that IP with Zerodha, Upstox and Groww.
 4. Add your accounts and log in to the brokers as usual. Each account is stored on the server and shared by all your devices. One broker login per day covers every device.
 
