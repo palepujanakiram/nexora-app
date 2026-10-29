@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/domain/entities/server_session.dart';
-import 'package:nexora_app/screens/settings/usecase/change_password_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/sign_out_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
@@ -31,7 +30,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
 
   Future<void> pump(WidgetTester tester) async {
-    server = FakeServerRepository(const ServerSession(url: 'https://srv.test', token: 't', email: 'me@x.com'));
+    server = FakeServerRepository(const ServerSession(url: 'https://srv.test', token: 't', phone: '+919876543210'));
     Future<void> switchTo(ServerSession? s) async => switches.add(s?.token);
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1;
@@ -42,7 +41,6 @@ void main() {
           create: (_) => ServerViewModel(
             WatchServerUseCase(server),
             SignOutUseCase(server, switchTo),
-            ChangePasswordUseCase(server, switchTo),
             GetServerIpUseCase(server),
           ),
           child: const ServerSection(),
@@ -52,11 +50,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder field(String label) => find.widgetWithText(TextFormField, label);
-
   testWidgets('shows who is signed in, and shows and copies the server IP', (tester) async {
     await pump(tester);
-    expect(find.text('Signed in as me@x.com'), findsOneWidget);
+    expect(find.text('Signed in as +91 98765 43210'), findsOneWidget);
     expect(find.text('https://srv.test'), findsOneWidget);
 
     await tester.tap(find.text('Show server IP'));
@@ -82,54 +78,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(server.calls, ['signOut']);
     expect(switches, [null]);
-    expect(find.text('Signed in as me@x.com'), findsNothing);
+    expect(find.text('Signed in as +91 98765 43210'), findsNothing);
   });
 
-  testWidgets('changes the password, checking the fields and showing server errors', (tester) async {
+  testWidgets('no longer offers a password change', (tester) async {
     await pump(tester);
-    await tester.tap(find.text('Change password'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('Your other devices will be signed out.'), findsOneWidget);
-
-    final submit = find.widgetWithText(FilledButton, 'Change password');
-    await tester.tap(submit);
-    await tester.pump();
-    expect(find.text('Required'), findsOneWidget);
-    expect(find.text('Use at least 10 characters.'), findsOneWidget);
-
-    await tester.enterText(field('Current password'), 'old password');
-    await tester.enterText(field('New password'), 'new password');
-    await tester.enterText(field('Repeat new password'), 'typo password');
-    await tester.tap(submit);
-    await tester.pump();
-    expect(find.text('The passwords don\'t match.'), findsOneWidget);
-
-    await tester.enterText(field('Repeat new password'), 'new password');
-    server.failWith = 'Current password is wrong.';
-    await tester.tap(submit);
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('Current password is wrong.'), findsWidgets);
-
-    server.failWith = null;
-    await tester.tap(submit);
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(server.calls.last, 'changePassword old password new password');
-    expect(switches, ['tok2']);
-    expect(find.text('Password changed. Other devices were signed out.'), findsOneWidget);
-  });
-
-  testWidgets('cancel closes the password dialog without changing anything', (tester) async {
-    await pump(tester);
-    await tester.tap(find.text('Change password'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(find.textContaining('Password changed'), findsNothing);
-    expect(server.calls, isEmpty);
+    expect(find.text('Change password'), findsNothing);
   });
 
   testWidgets('shows why the IP lookup failed', (tester) async {

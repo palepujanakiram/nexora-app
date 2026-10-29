@@ -4,21 +4,19 @@ import 'package:flutter/foundation.dart';
 
 import '../../../common/domain/entities/server_session.dart';
 import '../model/server_state.dart';
-import '../usecase/change_password_usecase.dart';
 import '../usecase/get_server_ip_usecase.dart';
 import '../usecase/sign_out_usecase.dart';
 import '../usecase/watch_server_usecase.dart';
 
-/// Settings → Server: who's signed in, the server's IP, password and sign-out.
+/// Settings → Server: who's signed in, the server's IP, and sign-out.
 class ServerViewModel extends ChangeNotifier {
-  ServerViewModel(WatchServerUseCase watch, this._signOut, this._changePassword, this._serverIp) {
+  ServerViewModel(WatchServerUseCase watch, this._signOut, this._serverIp) {
     _sub = watch().listen((s) => _emit(
           s == null ? _state.copyWith(clearSession: true, clearServerIp: true) : _state.copyWith(session: s),
         ));
   }
 
   final SignOutUseCase _signOut;
-  final ChangePasswordUseCase _changePassword;
   final GetServerIpUseCase _serverIp;
   late final StreamSubscription<ServerSession?> _sub;
 
@@ -26,10 +24,6 @@ class ServerViewModel extends ChangeNotifier {
   ServerState get state => _state;
 
   Future<bool> signOut() => _run(_signOut.call);
-
-  /// Returns true once the server accepted the new password.
-  Future<bool> changePassword({required String currentPassword, required String newPassword}) =>
-      _run(() => _changePassword(currentPassword: currentPassword, newPassword: newPassword));
 
   Future<void> loadServerIp() async {
     _emit(_state.copyWith(loadingIp: true, clearError: true));

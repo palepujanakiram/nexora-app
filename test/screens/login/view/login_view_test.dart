@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/server_session.dart';
 import 'package:nexora_app/screens/login/usecase/get_sign_in_notice_usecase.dart';
+import 'package:nexora_app/screens/login/usecase/send_code_usecase.dart';
 import 'package:nexora_app/screens/login/usecase/sign_in_usecase.dart';
 import 'package:nexora_app/screens/login/view/login_view.dart';
 
@@ -17,7 +18,8 @@ void main() {
     server = FakeServerRepository();
     switches = [];
     sl
-      ..registerFactory(() => SignInUseCase(server, (s) async => switches.add(s?.email)))
+      ..registerFactory(() => SendCodeUseCase(server))
+      ..registerFactory(() => SignInUseCase(server, (s) async => switches.add(s?.phone)))
       ..registerFactory(() => GetSignInNoticeUseCase(server));
   });
 
@@ -31,79 +33,135 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder field(String label) => find.widgetWithText(TextFormField, label);
+  final mobile = find.byKey(const Key('mobile'));
+  final code = find.byKey(const Key('code'));
+  Finder button(String label) => find.widgetWithText(FilledButton, label);
 
-  testWidgets('signs in to the default server', (tester) async {
+  Future<void> sendCode(WidgetTester tester, [String number = '9876543210']) async {
+    await tester.enterText(mobile, number);
+    await tester.tap(button('Send code'));
+    await tester.pump();
+  }
+
+  testWidgets('asks for the mobile number, then signs in with the texted code', (tester) async {
     await pump(tester);
-    expect(find.text('Sign in to your server'), findsOneWidget);
+    expect(find.text('Sign in with your mobile number'), findsOneWidget);
+    expect(find.text('+91 '), findsOneWidget);
     expect(find.text(ServerSession.defaultUrl), findsOneWidget, reason: 'shown under Server');
     expect(ServerSession.defaultUrl, 'https://nexora-backend-jp.fly.dev');
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await tester.tap(button('Send code'));
     await tester.pump();
-    expect(find.text('Required'), findsNWidgets(2));
+    expect(find.text('Enter your 10-digit mobile number.'), findsOneWidget);
+    await tester.enterText(mobile, '98765abc43210');
+    expect(tester.widget<TextFormField>(mobile).controller!.text, '9876543210', reason: 'digits only, at most 10');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(server.calls, ['requestCode ${ServerSession.defaultUrl} +919876543210']);
+
+    expect(find.text('Enter the code'), findsOneWidget);
+    expect(find.text('We sent a 6-digit code to +91 98765 43210.'), findsOneWidget);
+    expect(find.text('Resend code in 30s'), findsOneWidget);
+    expect(find.text('Server'), findsNothing);
+
+    // A full code is checked as soon as it's in, e.g. when iOS fills it from the SMS.
+    await tester.enterText(code, '123456');
+    await tester.pump();
+    expect(server.calls.last, 'verifyCode ${ServerSession.defaultUrl} +919876543210 123456');
+    expect(switches, ['+919876543210']);
+  });
+
+  testWidgets('explains a bad number and clears the error once it is fixed', (tester) async {
+    await pump(tester);
+    await sendCode(tester, '1234567890');
+    expect(find.text('Indian mobile numbers start with 6, 7, 8 or 9.'), findsOneWidget);
+
+    await tester.enterText(mobile, '98765');
+    await tester.pump();
+    expect(find.text('Enter your 10-digit mobile number.'), findsOneWidget, reason: 're-checked while typing');
+    await tester.enterText(mobile, '9876543210');
+    await tester.pump();
+    expect(find.text('Enter your 10-digit mobile number.'), findsNothing);
     expect(server.calls, isEmpty);
-
-    await tester.enterText(field('Email'), 'me@x.com');
-    await tester.enterText(field('Password'), 'pw');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-
-    expect(server.calls, ['signIn ${ServerSession.defaultUrl} me@x.com']);
-    expect(switches, ['me@x.com']);
   });
 
-  testWidgets('shows and hides the password', (tester) async {
+  testWidgets('shows a wrong code, then verifies with the button', (tester) async {
     await pump(tester);
-    bool obscured() => tester.widget<EditableText>(find.descendant(of: field('Password'), matching: find.byType(EditableText))).obscureText;
-    expect(obscured(), isTrue);
-    await tester.tap(find.byTooltip('Show password'));
+    await sendCode(tester);
+    await tester.enterText(code, '000000');
     await tester.pump();
-    expect(obscured(), isFalse);
-    await tester.tap(find.byTooltip('Hide password'));
-    await tester.pump();
-    expect(obscured(), isTrue);
-  });
-
-  testWidgets('creates a login with an invite code, showing errors', (tester) async {
-    await pump(tester);
-    await tester.tap(find.text('New here? Create a login'));
-    await tester.pumpAndSettle();
-    expect(find.text('Create your login'), findsOneWidget);
-    expect(find.text('At least 10 characters.'), findsOneWidget);
-
-    await tester.enterText(field('Email'), 'new@x.com');
-    await tester.enterText(field('Password'), 'short');
-    await tester.tap(find.widgetWithText(FilledButton, 'Create login'));
-    await tester.pump();
-    expect(find.text('Use at least 10 characters.'), findsOneWidget);
-    expect(find.text('Required'), findsOneWidget, reason: 'invite code');
-
-    await tester.enterText(field('Password'), 'long enough pw');
-    await tester.enterText(field('Invite code'), 'family');
-    server.failWith = 'Wrong invite code.';
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-    expect(find.text('Wrong invite code.'), findsOneWidget);
+    expect(find.text('Wrong code. 4 tries left.'), findsOneWidget);
     expect(switches, isEmpty);
 
-    server.failWith = null;
-    await tester.tap(find.widgetWithText(FilledButton, 'Create login'));
-    await tester.pumpAndSettle();
-    expect(server.calls.last, 'register ${ServerSession.defaultUrl} new@x.com family');
-    expect(switches, ['new@x.com']);
+    await tester.enterText(code, '12345');
+    await tester.tap(button('Verify and sign in'));
+    await tester.pump();
+    expect(find.text('Enter the 6-digit code from the SMS.'), findsOneWidget);
 
-    await tester.tap(find.text('Have a login? Sign in'));
-    await tester.pumpAndSettle();
-    expect(find.text('Sign in to your server'), findsOneWidget);
-    expect(field('Invite code'), findsNothing);
+    server.code = '12345';
+    await tester.enterText(code, '12345');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(find.text('Enter the 6-digit code from the SMS.'), findsOneWidget, reason: 'still five digits');
+
+    server.code = '123456';
+    await tester.enterText(code, '123456');
+    await tester.pump();
+    expect(switches, ['+919876543210']);
   });
 
-  testWidgets('signs in to another server, and can go back to the default', (tester) async {
+  testWidgets('resends after the countdown, and can change the number', (tester) async {
     await pump(tester);
+    await sendCode(tester);
+    await tester.enterText(code, '11');
+    await tester.pump(const Duration(seconds: 30));
+    expect(find.text('Resend code'), findsOneWidget);
+    await tester.tap(find.text('Resend code'));
+    await tester.pump();
+    expect(server.calls.where((c) => c.startsWith('requestCode')), hasLength(2));
+    expect(tester.widget<TextField>(code).controller!.text, isEmpty, reason: 'a new code clears the old one');
+    expect(find.text('Resend code in 30s'), findsOneWidget);
+
+    await tester.tap(find.text('Change number'));
+    await tester.pump();
+    expect(find.text('Sign in with your mobile number'), findsOneWidget);
+    expect(tester.widget<TextFormField>(mobile).controller!.text, '9876543210', reason: 'kept to fix a typo');
+  });
+
+  testWidgets('shows why a code could not be sent', (tester) async {
+    await pump(tester);
+    server.failWith = "This number isn't allowed to sign in. Ask the server owner to add it.";
+    await sendCode(tester);
+    expect(find.text("This number isn't allowed to sign in. Ask the server owner to add it."), findsOneWidget);
+    expect(find.text('Sign in with your mobile number'), findsOneWidget);
+  });
+
+  testWidgets('asks for the invite code the first time a number signs in', (tester) async {
+    await pump(tester);
+    server.inviteCode = 'family';
+    final invite = find.byKey(const Key('invite'));
+    expect(invite, findsNothing);
+    await sendCode(tester);
+    expect(find.text('This number has no login yet. Enter the invite code from the server owner.'), findsOneWidget);
+    expect(find.text('Only for your first sign-in. Ask whoever runs the server.'), findsOneWidget);
+
+    await tester.tap(button('Send code'));
+    await tester.pump();
+    expect(find.text('Required'), findsOneWidget);
+
+    await tester.enterText(invite, 'family');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(server.calls.last, 'requestCode ${ServerSession.defaultUrl} +919876543210 family');
+    expect(find.text('Enter the code'), findsOneWidget);
+  });
+
+  testWidgets('sends the code through another server, and can go back to the default', (tester) async {
+    await pump(tester);
+    final address = find.widgetWithText(TextFormField, 'Server address');
     await tester.tap(find.text('Server'));
     await tester.pumpAndSettle();
-    await tester.enterText(field('Server address'), 'http://localhost:8080');
+    await tester.enterText(address, 'http://localhost:8080');
     await tester.pump();
     expect(find.text('http://localhost:8080'), findsWidgets);
 
@@ -111,17 +169,14 @@ void main() {
     await tester.pump();
     expect(find.text(ServerSession.defaultUrl), findsWidgets);
 
-    await tester.enterText(field('Server address'), '');
-    await tester.enterText(field('Email'), 'me@x.com');
-    await tester.enterText(field('Password'), 'pw');
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
-    await tester.pump();
+    await tester.enterText(address, '');
+    await sendCode(tester);
     expect(find.text('Required'), findsOneWidget);
+    expect(server.calls, isEmpty);
 
-    await tester.enterText(field('Server address'), 'http://localhost:8080');
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
-    await tester.pumpAndSettle();
-    expect(server.calls, ['signIn http://localhost:8080 me@x.com']);
+    await tester.enterText(address, 'http://localhost:8080');
+    await sendCode(tester);
+    expect(server.calls, ['requestCode http://localhost:8080 +919876543210']);
   });
 
   testWidgets('explains why the session ended', (tester) async {

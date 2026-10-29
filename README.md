@@ -26,7 +26,7 @@ into orders on any number of **Zerodha (Kite Connect)**, **Upstox** and **Groww*
 - **Activity log** of every execution, with order IDs or errors.
 - **Optional server mode:** connect to your own [nexora-backend](https://github.com/palepujanakiram/nexora-backend) so every device shares the same accounts and orders go out from one static IP. A signal already placed from another device is caught before it's placed twice.
 - **Secure key storage** (Keychain on iOS, Keystore-encrypted on Android).
-- **Settings:** signed-in user, server IP, change password and sign out, theme colour, entry price within the range, exit orders and target choice.
+- **Settings:** signed-in mobile number, server IP and sign out, theme colour, entry price within the range, exit orders and target choice.
 
 ## Supported brokers
 
@@ -70,7 +70,7 @@ The app has four tabs: **Signal**, **Accounts**, **Activity** and **Settings**. 
 
 | | |
 |---|---|
-| <img src="docs/screenshots/settings.jpg" width="260" alt="Settings"> | <ul><li>**Server**: who's signed in, the server's IP, **Change password** and **Sign out** (see [Server mode](#server-mode-one-static-ip-for-every-device)).</li><li>**Theme colour**: eleven colours, saved on the device.</li><li>**Limit price within the entry range**: low end, middle or high end (for `AT 400-420`: 400, 410 or 420).</li><li>**Exit orders**: entry only, or entry + stop loss & target (GTT). Groww always places the entry only.</li><li>**Target used for the GTT exit**: TGT1–TGT3; falls back to the last target if the signal has fewer.</li></ul> |
+| <img src="docs/screenshots/settings.jpg" width="260" alt="Settings"> | <ul><li>**Server**: the signed-in mobile number, the server's IP and **Sign out** (see [Server mode](#server-mode-one-static-ip-for-every-device)).</li><li>**Theme colour**: eleven colours, saved on the device.</li><li>**Limit price within the entry range**: low end, middle or high end (for `AT 400-420`: 400, 410 or 420).</li><li>**Exit orders**: entry only, or entry + stop loss & target (GTT). Groww always places the entry only.</li><li>**Target used for the GTT exit**: TGT1–TGT3; falls back to the last target if the signal has fewer.</li></ul> |
 
 ## Signal format
 
@@ -105,10 +105,10 @@ In server mode the broker secrets and access tokens live on the server instead, 
 
 Brokers accept API orders only from the static IP registered with them. With several phones, tablets or a browser, each device would need that IP. [nexora-backend](https://github.com/palepujanakiram/nexora-backend) solves this: the app talks to your server, and the server talks to the brokers from its one static IP.
 
-The app requires a sign-in: it opens on the login screen and nothing else is available until you're signed in.
+The app requires a sign-in with your mobile number: it opens on the login screen and nothing else is available until you're signed in.
 
 1. Deploy nexora-backend (its [Fly.io guide](https://github.com/palepujanakiram/nexora-backend/blob/main/docs/deploy-fly.md) takes about 15 minutes). The Mumbai region gives it a static egress IP.
-2. Open the app and sign in with your email and password. The first time, tap **New here? Create a login** and enter the invite code (the server's `SIGNUP_CODE`).
+2. Set up MSG91 for the SMS codes (see the backend's Fly guide). Open the app, enter your 10-digit mobile number and tap **Send code**, then type the 6-digit code from the SMS (on iPhone it's offered above the keyboard). The first time a number signs in, the app also asks for the invite code (the server's `SIGNUP_CODE`), and that sign-in creates your user on the server.
 3. Tap **Settings → Server → Show server IP** and register that IP with Zerodha, Upstox and Groww.
 4. Add your accounts and log in to the brokers as usual. Each account is stored on the server and shared by all your devices. One broker login per day covers every device.
 
@@ -123,8 +123,8 @@ Once signed in:
 - **Signal**, **Accounts** and **Activity** run on the server: it places the orders and keeps the activity log for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
 - **Duplicate guard:** if the same signal was already placed on an account in the last 15 minutes (say, from another phone), the server refuses it. The result offers **Place anyway** for a deliberate repeat.
 - The web build works if the server's `CORS_ORIGINS` lists its address.
-- **Change password** (Settings → Server) signs out every other device; this one stays signed in.
-- **Sign out** returns to the login screen. Nothing on the server is deleted. When a session expires (after `SESSION_DAYS`) or the password is changed on another device, the app goes back to the login screen and says so.
+- **Sign out** returns to the login screen. Nothing on the server is deleted. When a session expires (after `SESSION_DAYS`) or the session is ended on the server, the app goes back to the login screen and says so.
+- **Wrong code:** you get 5 tries per code. **Resend code** works after 30 seconds, and **Change number** goes back to fix a typo.
 
 ## Getting started
 

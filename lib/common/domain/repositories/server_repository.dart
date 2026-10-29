@@ -1,4 +1,5 @@
 import '../entities/server_session.dart';
+import '../entities/sign_in_code.dart';
 
 /// Switches where accounts, logins, orders and activity live: on the server
 /// for [session], or on this device when it's null.
@@ -16,22 +17,16 @@ abstract interface class ServerRepository {
   /// Emits the current session, then every change.
   Stream<ServerSession?> watch();
 
-  Future<ServerSession> signIn({required String url, required String email, required String password});
+  /// Asks the server at [url] to text a sign-in code to [phone]. A number
+  /// without a login needs the owner's [signupCode]; without it the server
+  /// refuses with the `not_registered` error code and sends nothing.
+  Future<SignInCode> requestCode({required String url, required String phone, String? signupCode});
 
-  /// Creates a user on the server with the owner's invite code.
-  Future<ServerSession> register({
-    required String url,
-    required String email,
-    required String password,
-    required String inviteCode,
-  });
+  /// Signs in with the [code] texted to [phone] (as [SignInCode.phone]).
+  Future<ServerSession> verifyCode({required String url, required String phone, required String code});
 
   /// Ends the session on the server (best effort) and forgets it here.
   Future<void> signOut();
-
-  /// Changes the password. The server signs out every device, then starts a
-  /// new session for this one.
-  Future<ServerSession> changePassword({required String currentPassword, required String newPassword});
 
   /// The public IP the server's orders come from: the one to register with brokers.
   Future<String> serverIp();

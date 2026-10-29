@@ -2,7 +2,7 @@
 /// app's accounts, broker logins, orders and activity live on that server, so
 /// every device shares them and orders leave from the server's static IP.
 class ServerSession {
-  const ServerSession({required this.url, required this.token, required this.email});
+  const ServerSession({required this.url, required this.token, required this.phone});
 
   /// The server the login screen starts with. Override at build time with
   /// `--dart-define=NEXORA_SERVER_URL=https://…`.
@@ -13,5 +13,15 @@ class ServerSession {
 
   /// Bearer token for this device. Stored only in secure storage.
   final String token;
-  final String email;
+
+  /// The signed-in mobile number in E.164, e.g. `+919876543210`.
+  final String phone;
+
+  String get phoneLabel => formatPhone(phone);
+}
+
+/// `+919876543210` → `+91 98765 43210`. Other numbers are shown as they are.
+String formatPhone(String e164) {
+  final m = RegExp(r'^\+91(\d{5})(\d{5})$').firstMatch(e164);
+  return m == null ? e164 : '+91 ${m[1]} ${m[2]}';
 }

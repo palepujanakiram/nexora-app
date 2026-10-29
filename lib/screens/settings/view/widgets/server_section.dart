@@ -3,10 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../viewmodel/server_viewmodel.dart';
-import 'change_password_dialog.dart';
 
-/// Settings → Server: the signed-in user, the server's static IP to register
-/// with brokers, changing the password and signing out.
+/// Settings → Server: the signed-in number, the server's static IP to register
+/// with brokers, and signing out.
 class ServerSection extends StatelessWidget {
   const ServerSection({super.key});
 
@@ -26,7 +25,7 @@ class ServerSection extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.cloud_done, color: Colors.green),
-            title: Text('Signed in as ${session.email}'),
+            title: Text('Signed in as ${session.phoneLabel}'),
             subtitle: Text(session.url),
           ),
         if (state.serverIp != null)
@@ -50,11 +49,6 @@ class ServerSection extends StatelessWidget {
                 label: const Text('Show server IP'),
               ),
             TextButton.icon(
-              onPressed: state.busy ? null : () => _changePassword(context, vm),
-              icon: const Icon(Icons.password),
-              label: const Text('Change password'),
-            ),
-            TextButton.icon(
               onPressed: state.busy ? null : () => _confirmSignOut(context, vm),
               icon: const Icon(Icons.logout),
               label: const Text('Sign out'),
@@ -67,13 +61,6 @@ class ServerSection extends StatelessWidget {
         ],
       ],
     );
-  }
-
-  Future<void> _changePassword(BuildContext context, ServerViewModel vm) async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (await ChangePasswordDialog.show(context, vm)) {
-      messenger.showSnackBar(const SnackBar(content: Text('Password changed. Other devices were signed out.')));
-    }
   }
 
   Future<void> _confirmSignOut(BuildContext context, ServerViewModel vm) async {

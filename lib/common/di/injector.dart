@@ -14,8 +14,8 @@ import '../../screens/accounts/usecase/toggle_account_enabled_usecase.dart';
 import '../../screens/activity/usecase/clear_activity_usecase.dart';
 import '../../screens/activity/usecase/watch_activity_usecase.dart';
 import '../../screens/login/usecase/get_sign_in_notice_usecase.dart';
+import '../../screens/login/usecase/send_code_usecase.dart';
 import '../../screens/login/usecase/sign_in_usecase.dart';
-import '../../screens/settings/usecase/change_password_usecase.dart';
 import '../../screens/settings/usecase/get_proxy_worker_script_usecase.dart';
 import '../../screens/settings/usecase/get_server_ip_usecase.dart';
 import '../../screens/settings/usecase/sign_out_usecase.dart';
@@ -123,6 +123,7 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
 
   // Login screen
   sl
+    ..registerFactory(() => SendCodeUseCase(sl()))
     ..registerFactory(() => SignInUseCase(sl(), sl()))
     ..registerFactory(() => GetSignInNoticeUseCase(sl()));
 
@@ -156,7 +157,6 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
     ..registerFactory(() => TestProxyUseCase(sl()))
     ..registerFactory(() => WatchServerUseCase(sl()))
     ..registerFactory(() => SignOutUseCase(sl(), sl()))
-    ..registerFactory(() => ChangePasswordUseCase(sl(), sl()))
     ..registerFactory(() => GetServerIpUseCase(sl()));
 }
 

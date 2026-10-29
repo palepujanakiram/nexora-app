@@ -22,7 +22,7 @@ class SettingsView extends StatelessWidget {
   Widget build(BuildContext context) => MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => SettingsViewModel(sl(), sl(), sl(), sl(), isWeb: isWeb)),
-          ChangeNotifierProvider(create: (_) => ServerViewModel(sl(), sl(), sl(), sl())),
+          ChangeNotifierProvider(create: (_) => ServerViewModel(sl(), sl(), sl())),
         ],
         child: const _SettingsBody(),
       );

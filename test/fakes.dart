@@ -2,6 +2,7 @@ import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
 import 'package:nexora_app/common/domain/entities/execution_result.dart';
 import 'package:nexora_app/common/domain/entities/server_session.dart';
+import 'package:nexora_app/common/domain/entities/sign_in_code.dart';
 import 'package:nexora_app/common/domain/entities/trade_plan.dart';
 import 'package:nexora_app/common/domain/entities/trade_signal.dart';
 import 'package:nexora_app/common/domain/repositories/account_repository.dart';
@@ -79,7 +80,7 @@ class FakeServerRepository implements ServerRepository {
   FakeServerRepository([ServerSession? initial]) : _cache = ReactiveCache(initial);
   final ReactiveCache<ServerSession?> _cache;
 
-  /// When set, sign-in, registration and IP lookups fail with this message.
+  /// When set, code requests, sign-in and IP lookups fail with this message.
   String? failWith;
   final calls = <String>[];
 
@@ -97,26 +98,33 @@ class FakeServerRepository implements ServerRepository {
     _cache.value = null;
   }
 
-  @override
-  Future<ServerSession> signIn({required String url, required String email, required String password}) async {
-    calls.add('signIn $url $email');
-    return _start(url, email);
-  }
+  /// The code [verifyCode] accepts.
+  String code = '123456';
+
+  /// The wait before another code is offered.
+  Duration resendIn = const Duration(seconds: 30);
+
+  /// When set, the number has no login yet: codes need this invite code.
+  String? inviteCode;
 
   @override
-  Future<ServerSession> register({
-    required String url,
-    required String email,
-    required String password,
-    required String inviteCode,
-  }) async {
-    calls.add('register $url $email $inviteCode');
-    return _start(url, email);
-  }
-
-  ServerSession _start(String url, String email) {
+  Future<SignInCode> requestCode({required String url, required String phone, String? signupCode}) async {
+    calls.add('requestCode $url $phone${signupCode == null ? '' : ' $signupCode'}');
     if (failWith != null) throw ServerApiException(failWith!);
-    return _cache.value = ServerSession(url: url, token: 'tok', email: email);
+    if (inviteCode != null && signupCode != inviteCode) {
+      throw signupCode == null
+          ? ServerApiException('Sign up first.', statusCode: 404, code: 'not_registered')
+          : ServerApiException('Wrong invite code.', statusCode: 403, code: 'forbidden');
+    }
+    return SignInCode(phone: phone, expiresIn: const Duration(minutes: 5), resendIn: resendIn);
+  }
+
+  @override
+  Future<ServerSession> verifyCode({required String url, required String phone, required String code}) async {
+    calls.add('verifyCode $url $phone $code');
+    if (failWith != null) throw ServerApiException(failWith!);
+    if (code != this.code) throw ServerApiException('Wrong code. 4 tries left.');
+    return _cache.value = ServerSession(url: url, token: 'tok', phone: phone);
   }
 
   @override
@@ -129,14 +137,6 @@ class FakeServerRepository implements ServerRepository {
   Future<String> serverIp() async {
     if (failWith != null) throw ServerApiException(failWith!);
     return '203.0.113.7';
-  }
-
-  @override
-  Future<ServerSession> changePassword({required String currentPassword, required String newPassword}) async {
-    calls.add('changePassword $currentPassword $newPassword');
-    if (failWith != null) throw ServerApiException(failWith!);
-    final session = current!;
-    return _cache.value = ServerSession(url: session.url, token: 'tok2', email: session.email);
   }
 }
 

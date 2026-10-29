@@ -18,8 +18,8 @@ import 'package:nexora_app/common/domain/repositories/server_repository.dart';
 import 'package:nexora_app/common/domain/repositories/signal_execution_repository.dart';
 import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
 import 'package:nexora_app/screens/login/usecase/get_sign_in_notice_usecase.dart';
+import 'package:nexora_app/screens/login/usecase/send_code_usecase.dart';
 import 'package:nexora_app/screens/login/usecase/sign_in_usecase.dart';
-import 'package:nexora_app/screens/settings/usecase/change_password_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/sign_out_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
@@ -99,7 +99,7 @@ void main() {
       () => sl<SignInUseCase>(),
       () => sl<GetSignInNoticeUseCase>(),
       () => sl<SignOutUseCase>(),
-      () => sl<ChangePasswordUseCase>(),
+      () => sl<SendCodeUseCase>(),
       () => sl<GetServerIpUseCase>(),
     ];
     for (final resolve in resolvers) {
@@ -130,14 +130,14 @@ void main() {
 
   test('a saved server session puts accounts, logins, orders and activity on the server', () async {
     FlutterSecureStorage.setMockInitialValues({
-      'server_session_v1': '{"url":"https://srv.test","token":"tok","email":"me@x.com"}',
+      'server_session_v2': '{"url":"https://srv.test","token":"tok","phone":"+919876543210"}',
       'broker_accounts_v1': '[{"id":"a1","broker":"upstox","label":"Mine","apiKey":"k","apiSecret":"s"}]',
     });
     final client = MockClient((_) async => http.Response('{"accounts":[]}', 200));
     final generation = dataGeneration.value;
     await configureDependencies(httpClient: client);
 
-    expect(sl<ServerRepository>().current?.email, 'me@x.com');
+    expect(sl<ServerRepository>().current?.phone, '+919876543210');
     expect(activeSession.value, same(sl<ServerRepository>().current));
     expect(sl<AccountRepository>(), isA<ServerAccountRepository>());
     expect(sl<ActivityRepository>(), isA<ServerActivityRepository>());
@@ -158,13 +158,13 @@ void main() {
     await sl<SwitchDataSource>()(null);
     expect(dataGeneration.value, generation + 2);
 
-    await sl<SwitchDataSource>()(const ServerSession(url: 'https://srv.test', token: 't', email: 'e'));
+    await sl<SwitchDataSource>()(const ServerSession(url: 'https://srv.test', token: 't', phone: '+919876543210'));
     expect(sl<AccountRepository>(), isA<ServerAccountRepository>());
   });
 
   test('when the server rejects the token, the app is signed out', () async {
     FlutterSecureStorage.setMockInitialValues({
-      'server_session_v1': '{"url":"https://srv.test","token":"tok","email":"me@x.com"}',
+      'server_session_v2': '{"url":"https://srv.test","token":"tok","phone":"+919876543210"}',
     });
     final client = MockClient((_) async => http.Response('{"error":{"code":"unauthorized","message":"x"}}', 401));
     await configureDependencies(httpClient: client);

@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/usecases/watch_settings_usecase.dart';
-import 'package:nexora_app/screens/settings/usecase/change_password_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/sign_out_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_proxy_worker_script_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
@@ -34,7 +33,6 @@ void main() {
     sl
       ..registerFactory(() => WatchServerUseCase(server))
       ..registerFactory(() => SignOutUseCase(server, noSwitch))
-      ..registerFactory(() => ChangePasswordUseCase(server, noSwitch))
       ..registerFactory(() => GetServerIpUseCase(server))
       ..registerFactory(() => WatchSettingsUseCase(settings))
       ..registerFactory(() => UpdateSettingsUseCase(settings))
@@ -167,9 +165,9 @@ void main() {
     expect(find.byType(ServerSection), findsOneWidget);
     expect(find.text('Web CORS proxy'), findsOneWidget);
 
-    server = FakeServerRepository(const ServerSession(url: 'https://srv.test', token: 't', email: 'me@x.com'));
+    server = FakeServerRepository(const ServerSession(url: 'https://srv.test', token: 't', phone: '+919876543210'));
     await pumpView(tester);
-    expect(find.text('Signed in as me@x.com'), findsOneWidget);
+    expect(find.text('Signed in as +91 98765 43210'), findsOneWidget);
     expect(find.text('Web CORS proxy'), findsNothing);
   });
 }

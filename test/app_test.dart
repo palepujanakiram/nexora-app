@@ -41,7 +41,7 @@ void main() {
   testWidgets('a saved session opens home; a session the server rejects goes back to login', (tester) async {
     await sl.reset();
     FlutterSecureStorage.setMockInitialValues({
-      'server_session_v1': '{"url":"https://srv.test","token":"old","email":"me@x.com"}',
+      'server_session_v2': '{"url":"https://srv.test","token":"old","phone":"+919876543210"}',
     });
     var accepted = true;
     final client = MockClient((_) async => accepted
@@ -60,6 +60,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(LoginView), findsOneWidget);
     expect(find.text('Your session ended. Sign in again.'), findsOneWidget);
+  });
+
+  testWidgets('signs in with the mobile number and the texted code, then shows the tabs', (tester) async {
+    await sl.reset();
+    final paths = <String>[];
+    final client = MockClient((req) async {
+      paths.add('${req.method} ${req.url.path}');
+      return switch (req.url.path) {
+        '/v1/auth/otp/start' => http.Response('{"sent":true,"expires_in_seconds":300}', 200),
+        '/v1/auth/otp/verify' => http.Response('{"token":"tok","user":{"id":"u1","phone":"+919876543210"}}', 200),
+        _ => http.Response('{"accounts":[],"executions":[]}', 200),
+      };
+    });
+    await tester.runAsync(() => configureDependencies(httpClient: client));
+    await tester.pumpWidget(const NexoraApp());
+    await tester.pump();
+
+    await tester.enterText(find.byKey(const Key('mobile')), '9876543210');
+    await tester.tap(find.widgetWithText(FilledButton, 'Send code'));
+    await tester.runAsync(pumpEventQueue);
+    await tester.pump();
+    expect(find.text('We sent a 6-digit code to +91 98765 43210.'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('code')), '123456');
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeView), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(paths.take(2), ['POST /v1/auth/otp/start', 'POST /v1/auth/otp/verify']);
   });
 
   testWidgets('rebuilds the theme when the colour is changed in settings', (tester) async {

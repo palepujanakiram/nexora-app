@@ -10,6 +10,7 @@ import 'server/fake_server.dart';
 
 void main() {
   late SecureStorageDataSource storage;
+  const phone = '+919876543210';
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
@@ -17,56 +18,107 @@ void main() {
   });
 
   FakeServer server() => FakeServer({
-        'POST /v1/auth/login': (_) => {
+        'POST /v1/auth/otp/start': (_) => {'sent': true, 'expires_in_seconds': 240},
+        'POST /v1/auth/otp/verify': (_) => {
               'token': 'T1',
-              'user': {'id': 'u', 'email': 'me@example.com'},
-            },
-        'POST /v1/auth/register': (_) => {
-              'token': 'T2',
-              'user': {'id': 'u', 'email': 'new@example.com'},
+              'user': {'id': 'u', 'phone': phone},
             },
         'POST /v1/auth/logout': (_) => http.Response('', 204),
         'GET /v1/server/ip': (_) => {'ip': '203.0.113.7', 'liveTrading': false},
-        'POST /v1/auth/password': (_) => {
-              'token': 'T3',
-              'user': {'id': 'u', 'email': 'me@example.com'},
-            },
       });
 
-  test('starts signed out, signs in, remembers the session and reloads it', () async {
+  Future<ServerRepositoryImpl> signedIn(FakeServer fake) async {
+    final repo = await ServerRepositoryImpl.load(fake.client, storage);
+    await repo.verifyCode(url: 'https://srv.test', phone: phone, code: '123456');
+    return repo;
+  }
+
+  test('asks the server to text a code, then signs in with it and remembers the session', () async {
     final fake = server();
     final repo = await ServerRepositoryImpl.load(fake.client, storage);
     expect(repo.current, isNull);
     final emitted = <String?>[];
-    repo.watch().listen((s) => emitted.add(s?.email));
+    repo.watch().listen((s) => emitted.add(s?.phone));
 
-    final session = await repo.signIn(url: 'https://srv.test/', email: ' me@example.com ', password: 'pw');
-    expect([session.url, session.token, session.email], ['https://srv.test', 'T1', 'me@example.com']);
-    expect(fake.bodyOf('POST /v1/auth/login'), {
-      'email': 'me@example.com',
-      'password': 'pw',
+    final sent = await repo.requestCode(url: 'https://srv.test/', phone: ' +919876543210 ');
+    expect([sent.phone, sent.expiresIn, sent.resendIn], [phone, const Duration(minutes: 4), const Duration(seconds: 30)]);
+    expect(fake.bodyOf('POST /v1/auth/otp/start'), {'phone': phone});
+    expect(fake.requests.last.headers.containsKey('Authorization'), isFalse);
+
+    await repo.requestCode(url: 'https://srv.test', phone: phone, signupCode: ' family ');
+    expect(fake.bodyOf('POST /v1/auth/otp/start'), {'phone': phone, 'signupCode': 'family'});
+    await repo.requestCode(url: 'https://srv.test', phone: phone, signupCode: '  ');
+    expect(fake.bodyOf('POST /v1/auth/otp/start'), {'phone': phone});
+
+    final session = await repo.verifyCode(url: 'https://srv.test/', phone: phone, code: ' 123456 ');
+    expect([session.url, session.token, session.phone, session.phoneLabel],
+        ['https://srv.test', 'T1', phone, '+91 98765 43210']);
+    expect(fake.bodyOf('POST /v1/auth/otp/verify'), {
+      'phone': phone,
+      'code': '123456',
       'device': ServerRepositoryImpl.deviceName,
     });
 
     final reloaded = await ServerRepositoryImpl.load(fake.client, storage);
     expect(reloaded.current?.token, 'T1');
+    expect(reloaded.current?.phone, phone);
     await pumpEventQueue();
-    expect(emitted, [null, 'me@example.com']);
+    expect(emitted, [null, phone]);
   });
 
-  test('registers with the invite code', () async {
+  test('assumes 5 minutes when the server leaves out the expiry', () async {
+    final repo = await ServerRepositoryImpl.load(FakeServer({'POST /v1/auth/otp/start': (_) => {'sent': true}}).client, storage);
+    final sent = await repo.requestCode(url: 'https://srv.test', phone: phone);
+    expect([sent.expiresIn, sent.resendIn], [const Duration(minutes: 5), ServerRepositoryImpl.resendWait]);
+  });
+
+  test('passes on that a new number needs the invite code', () async {
+    final repo = await ServerRepositoryImpl.load(
+      FakeServer({
+        'POST /v1/auth/otp/start': (_) =>
+            http.Response('{"error":{"code":"not_registered","message":"Sign up first."}}', 404),
+      }).client,
+      storage,
+    );
+    await expectLater(repo.requestCode(url: 'https://srv.test', phone: phone),
+        throwsA(isA<ServerApiException>().having((e) => e.code, 'code', 'not_registered')));
+  });
+
+  test('a wrong code is an error but signs nothing out', () async {
     final fake = server();
     final repo = await ServerRepositoryImpl.load(fake.client, storage);
-    final session = await repo.register(url: 'https://srv.test', email: 'new@example.com', password: 'pw', inviteCode: ' code ');
-    expect(session.email, 'new@example.com');
-    expect(fake.bodyOf('POST /v1/auth/register')['signupCode'], 'code');
+    fake.routes['POST /v1/auth/otp/verify'] =
+        (_) => http.Response('{"error":{"code":"unauthorized","message":"Wrong code. 4 tries left."}}', 401);
+    await expectLater(repo.verifyCode(url: 'https://srv.test', phone: phone, code: '000000'),
+        throwsA(isA<ServerApiException>().having((e) => e.message, 'message', 'Wrong code. 4 tries left.')));
+    expect(repo.current, isNull);
+    expect(repo.endedReason, isNull);
   });
 
-  test('rejects a reply that is not a sign-in', () async {
-    final repo = await ServerRepositoryImpl.load(FakeServer({'POST /v1/auth/login': (_) => {'hello': 1}}).client, storage);
-    await expectLater(repo.signIn(url: 'https://srv.test', email: 'a@b.c', password: 'pw'),
-        throwsA(isA<ServerApiException>().having((e) => e.message, 'message', contains('isn\'t a nexora-backend'))));
+  test('rejects replies that are not from nexora-backend', () async {
+    final repo = await ServerRepositoryImpl.load(
+      FakeServer({
+        'POST /v1/auth/otp/start': (_) => {'hello': 1},
+        'POST /v1/auth/otp/verify': (_) => {
+              'token': 'T',
+              'user': {'id': 'u', 'email': 'old@example.com'},
+            },
+      }).client,
+      storage,
+    );
+    final notBackend = throwsA(isA<ServerApiException>().having((e) => e.message, 'message', contains('isn\'t a nexora-backend')));
+    await expectLater(repo.requestCode(url: 'https://srv.test', phone: phone), notBackend);
+    await expectLater(repo.verifyCode(url: 'https://srv.test', phone: phone, code: '1'), notBackend);
     expect(repo.current, isNull);
+  });
+
+  test('drops an email session saved before phone sign-in', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'server_session_v1': '{"url":"https://srv.test","token":"old","email":"me@example.com"}',
+    });
+    final repo = await ServerRepositoryImpl.load(server().client, storage);
+    expect(repo.current, isNull);
+    expect(await storage.readJson('server_session_v1'), isNull);
   });
 
   test('looks up the server IP, and signs out even when the server is unreachable', () async {
@@ -74,20 +126,20 @@ void main() {
     final repo = await ServerRepositoryImpl.load(fake.client, storage);
     await expectLater(repo.serverIp(), throwsA(isA<ServerApiException>()));
     await repo.signOut(); // nothing to do yet
-    await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'pw');
+    await repo.verifyCode(url: 'https://srv.test', phone: phone, code: '123456');
     expect(await repo.serverIp(), '203.0.113.7');
     expect(fake.requests.last.headers['Authorization'], 'Bearer T1');
 
     fake.routes['POST /v1/auth/logout'] = (_) => http.Response('{"error":{"message":"down"}}', 503);
     await repo.signOut();
     expect(repo.current, isNull);
-    expect(await storage.readJson('server_session_v1'), isNull);
+    expect(await storage.readJson('server_session_v2'), isNull);
   });
 
   test('forgets the session when the server rejects its token, and says why', () async {
     final fake = server();
-    final repo = await ServerRepositoryImpl.load(fake.client, storage);
-    final session = await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'pw');
+    final repo = await signedIn(fake);
+    final session = repo.current!;
     expect(repo.endedReason, isNull);
 
     fake.routes['GET /v1/server/ip'] = (_) => http.Response('{"error":{"code":"unauthorized","message":"x"}}', 401);
@@ -95,10 +147,10 @@ void main() {
     await pumpEventQueue();
     expect(repo.current, isNull);
     expect(repo.endedReason, 'Your session ended. Sign in again.');
-    expect(await storage.readJson('server_session_v1'), isNull);
+    expect(await storage.readJson('server_session_v2'), isNull);
 
     // A late 401 from an old session doesn't touch a newer one.
-    await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'pw');
+    await repo.verifyCode(url: 'https://srv.test', phone: phone, code: '123456');
     expect(repo.endedReason, isNull);
     await expectLater(repo.api(session).get('/v1/server/ip'), throwsA(isA<ServerApiException>()));
     await pumpEventQueue();
@@ -107,40 +159,12 @@ void main() {
 
   test('a rejected sign-out still signs out, without an expiry notice', () async {
     final fake = server();
-    final repo = await ServerRepositoryImpl.load(fake.client, storage);
-    await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'pw');
+    final repo = await signedIn(fake);
     fake.routes['POST /v1/auth/logout'] = (_) => http.Response('{"error":{"code":"unauthorized","message":"x"}}', 401);
     await repo.signOut();
     await pumpEventQueue();
     expect(repo.current, isNull);
     expect(repo.endedReason, isNull);
-  });
-
-  test('changes the password and keeps the new session', () async {
-    final fake = server();
-    final repo = await ServerRepositoryImpl.load(fake.client, storage);
-    await expectLater(repo.changePassword(currentPassword: 'a', newPassword: 'b'),
-        throwsA(isA<ServerApiException>().having((e) => e.message, 'message', 'Sign in first.')));
-
-    await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'old password');
-    final session = await repo.changePassword(currentPassword: 'old password', newPassword: 'new password');
-    expect(session.token, 'T3');
-    expect(repo.current, same(session));
-    expect(fake.requests.last.headers['Authorization'], 'Bearer T1');
-    expect(fake.bodyOf('POST /v1/auth/password'), {
-      'currentPassword': 'old password',
-      'newPassword': 'new password',
-      'device': ServerRepositoryImpl.deviceName,
-    });
-    expect((await ServerRepositoryImpl.load(fake.client, storage)).current?.token, 'T3');
-
-    // A wrong current password is a 401 too, but must not sign the user out.
-    fake.routes['POST /v1/auth/password'] =
-        (_) => http.Response('{"error":{"code":"unauthorized","message":"Current password is wrong."}}', 401);
-    await expectLater(repo.changePassword(currentPassword: 'x', newPassword: 'new password 2'),
-        throwsA(isA<ServerApiException>().having((e) => e.message, 'message', 'Current password is wrong.')));
-    await pumpEventQueue();
-    expect(repo.current?.token, 'T3');
   });
 
   test('names the device by platform', () {
