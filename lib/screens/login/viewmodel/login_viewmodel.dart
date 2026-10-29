@@ -19,20 +19,19 @@ class LoginViewModel extends ChangeNotifier {
   LoginState _state;
   LoginState get state => _state;
 
-  /// Where the code was requested, for which number and with which invite
-  /// code, so resend and verify match.
+  /// Where the code was requested, and for which number, so resend and verify match.
   String _url = '';
   String _mobile = '';
-  String? _invite;
   Timer? _countdown;
   bool _disposed = false;
 
-  /// Texts a code to [mobile] and moves to the code step. Returns true once
-  /// sent. A new number first asks for [inviteCode] (see [LoginState.needsInvite]).
-  Future<bool> sendCode({required String url, required String mobile, String? inviteCode}) async {
+  /// Shown when the server has no login for the number.
+  static const userNotFound = 'User not found.';
+
+  /// Texts a code to [mobile] and moves to the code step. Returns true once sent.
+  Future<bool> sendCode({required String url, required String mobile}) async {
     _url = url;
     _mobile = mobile;
-    _invite = inviteCode;
     return _send();
   }
 
@@ -44,13 +43,12 @@ class LoginViewModel extends ChangeNotifier {
 
   Future<bool> _send() => _run(() async {
         try {
-          final sent = await _sendCode(url: _url, mobile: _mobile, inviteCode: _state.needsInvite ? _invite : null);
+          final sent = await _sendCode(url: _url, mobile: _mobile);
           _emit(_state.copyWith(sent: sent, resendIn: sent.resendIn.inSeconds));
           _startCountdown();
         } on ServerApiException catch (e) {
           if (e.code != SendCodeUseCase.notRegistered) rethrow;
-          _emit(_state.copyWith(needsInvite: true));
-          throw ServerApiException('This number has no login yet. Enter the invite code from the server owner.');
+          throw ServerApiException(userNotFound);
         }
       });
 

@@ -17,10 +17,10 @@ abstract interface class ServerRepository {
   /// Emits the current session, then every change.
   Stream<ServerSession?> watch();
 
-  /// Asks the server at [url] to text a sign-in code to [phone]. A number
-  /// without a login needs the owner's [signupCode]; without it the server
-  /// refuses with the `not_registered` error code and sends nothing.
-  Future<SignInCode> requestCode({required String url, required String phone, String? signupCode});
+  /// Asks the server at [url] to text a sign-in code to [phone]. For a number
+  /// with no login, the server refuses with the `not_registered` error code
+  /// and sends nothing.
+  Future<SignInCode> requestCode({required String url, required String phone});
 
   /// Signs in with the [code] texted to [phone] (as [SignInCode.phone]).
   Future<ServerSession> verifyCode({required String url, required String phone, required String code});

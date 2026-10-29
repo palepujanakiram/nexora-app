@@ -70,13 +70,9 @@ class ServerRepositoryImpl implements ServerRepository {
   static const resendWait = Duration(seconds: 30);
 
   @override
-  Future<SignInCode> requestCode({required String url, required String phone, String? signupCode}) async {
+  Future<SignInCode> requestCode({required String url, required String phone}) async {
     final baseUrl = NexoraServerApi.normalizeUrl(url);
-    final code = signupCode?.trim() ?? '';
-    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post('/v1/auth/otp/start', {
-      'phone': phone.trim(),
-      if (code.isNotEmpty) 'signupCode': code,
-    });
+    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post('/v1/auth/otp/start', {'phone': phone.trim()});
     if (json['sent'] != true) {
       throw ServerApiException('That address answered, but it isn\'t a nexora-backend server.');
     }

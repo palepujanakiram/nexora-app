@@ -25,9 +25,6 @@ void main() {
     expect(sent.phone, '+919876543210');
     expect(sent.resendIn, const Duration(seconds: 30));
     expect(server.calls, ['requestCode https://srv.test +919876543210']);
-
-    await SendCodeUseCase(server)(url: 'u', mobile: '9876543210', inviteCode: 'family');
-    expect(server.calls.last, 'requestCode u +919876543210 family');
   });
 
   test('checks the number before asking the server', () async {

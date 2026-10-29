@@ -19,12 +19,11 @@ class SendCodeUseCase {
 
   final ServerRepository _server;
 
-  /// [mobile] is the 10-digit number, with or without spaces. [inviteCode] is
-  /// needed only the first time a number signs in.
-  Future<SignInCode> call({required String url, required String mobile, String? inviteCode}) async {
+  /// [mobile] is the 10-digit number, with or without spaces.
+  Future<SignInCode> call({required String url, required String mobile}) async {
     final problem = problemWith(mobile);
     if (problem != null) throw ServerApiException(problem);
     final digits = mobile.replaceAll(RegExp(r'[\s-]'), '');
-    return _server.requestCode(url: url, phone: '+91$digits', signupCode: inviteCode);
+    return _server.requestCode(url: url, phone: '+91$digits');
   }
 }

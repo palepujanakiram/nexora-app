@@ -88,23 +88,12 @@ void main() {
     noticed.dispose();
   });
 
-  test('asks a new number for the invite code, then keeps sending it', () async {
+  test('says the user is not found when the number has no login', () async {
     final vm = build();
-    server.inviteCode = 'family';
-    expect(await vm.sendCode(url: 'u', mobile: '9876543210', inviteCode: 'ignored until asked'), isFalse);
-    expect(vm.state.needsInvite, isTrue);
-    expect(vm.state.error, 'This number has no login yet. Enter the invite code from the server owner.');
-    expect(server.calls.last, 'requestCode u +919876543210');
-
-    expect(await vm.sendCode(url: 'u', mobile: '9876543210', inviteCode: 'nope'), isFalse);
-    expect(vm.state.error, 'Wrong invite code.');
-
-    expect(await vm.sendCode(url: 'u', mobile: '9876543210', inviteCode: 'family'), isTrue);
-    expect(vm.state.enteringCode, isTrue);
-    server.resendIn = Duration.zero;
-    vm.changeNumber();
-    expect(await vm.sendCode(url: 'u', mobile: '9876543210', inviteCode: 'family'), isTrue);
-    expect(server.calls.last, 'requestCode u +919876543210 family');
+    server.unknownPhones.add('+919030863940');
+    expect(await vm.sendCode(url: 'u', mobile: '9030863940'), isFalse);
+    expect(vm.state.error, 'User not found.');
+    expect(vm.state.enteringCode, isFalse);
     vm.dispose();
   });
 

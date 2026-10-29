@@ -13,7 +13,6 @@ void main() {
     expect([code.enteringCode, code.sentTo, code.resendIn, code.busy, code.notice],
         [true, '+91 98765 43210', 30, true, 'ended']);
     expect(code.copyWith(clearSent: true).enteringCode, isFalse);
-    expect(start.copyWith(needsInvite: true).copyWith(busy: true).needsInvite, isTrue);
   });
 
   test('keeps the error until cleared', () {

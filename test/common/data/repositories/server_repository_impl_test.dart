@@ -45,11 +45,6 @@ void main() {
     expect(fake.bodyOf('POST /v1/auth/otp/start'), {'phone': phone});
     expect(fake.requests.last.headers.containsKey('Authorization'), isFalse);
 
-    await repo.requestCode(url: 'https://srv.test', phone: phone, signupCode: ' family ');
-    expect(fake.bodyOf('POST /v1/auth/otp/start'), {'phone': phone, 'signupCode': 'family'});
-    await repo.requestCode(url: 'https://srv.test', phone: phone, signupCode: '  ');
-    expect(fake.bodyOf('POST /v1/auth/otp/start'), {'phone': phone});
-
     final session = await repo.verifyCode(url: 'https://srv.test/', phone: phone, code: ' 123456 ');
     expect([session.url, session.token, session.phone, session.phoneLabel],
         ['https://srv.test', 'T1', phone, '+91 98765 43210']);
@@ -72,7 +67,7 @@ void main() {
     expect([sent.expiresIn, sent.resendIn], [const Duration(minutes: 5), ServerRepositoryImpl.resendWait]);
   });
 
-  test('passes on that a new number needs the invite code', () async {
+  test('passes on that the number has no login', () async {
     final repo = await ServerRepositoryImpl.load(
       FakeServer({
         'POST /v1/auth/otp/start': (_) =>

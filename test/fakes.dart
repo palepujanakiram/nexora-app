@@ -104,17 +104,15 @@ class FakeServerRepository implements ServerRepository {
   /// The wait before another code is offered.
   Duration resendIn = const Duration(seconds: 30);
 
-  /// When set, the number has no login yet: codes need this invite code.
-  String? inviteCode;
+  /// Numbers the server has no login for.
+  final unknownPhones = <String>{};
 
   @override
-  Future<SignInCode> requestCode({required String url, required String phone, String? signupCode}) async {
-    calls.add('requestCode $url $phone${signupCode == null ? '' : ' $signupCode'}');
+  Future<SignInCode> requestCode({required String url, required String phone}) async {
+    calls.add('requestCode $url $phone');
     if (failWith != null) throw ServerApiException(failWith!);
-    if (inviteCode != null && signupCode != inviteCode) {
-      throw signupCode == null
-          ? ServerApiException('Sign up first.', statusCode: 404, code: 'not_registered')
-          : ServerApiException('Wrong invite code.', statusCode: 403, code: 'forbidden');
+    if (unknownPhones.contains(phone)) {
+      throw ServerApiException('Sign up first.', statusCode: 404, code: 'not_registered');
     }
     return SignInCode(phone: phone, expiresIn: const Duration(minutes: 5), resendIn: resendIn);
   }

@@ -31,7 +31,6 @@ class _LoginBody extends StatefulWidget {
 class _LoginBodyState extends State<_LoginBody> {
   final _phoneForm = GlobalKey<FormState>();
   final _mobile = TextEditingController();
-  final _invite = TextEditingController();
   final _code = TextEditingController();
   final _url = TextEditingController(text: ServerSession.defaultUrl);
 
@@ -41,7 +40,7 @@ class _LoginBodyState extends State<_LoginBody> {
 
   @override
   void dispose() {
-    for (final c in [_mobile, _invite, _code, _url]) {
+    for (final c in [_mobile, _code, _url]) {
       c.dispose();
     }
     super.dispose();
@@ -56,7 +55,7 @@ class _LoginBodyState extends State<_LoginBody> {
       setState(() => _autovalidate = AutovalidateMode.onUserInteraction);
       return;
     }
-    if (await vm.sendCode(url: _url.text, mobile: _mobile.text, inviteCode: _invite.text)) _code.clear();
+    if (await vm.sendCode(url: _url.text, mobile: _mobile.text)) _code.clear();
   }
 
   Future<void> _resend(LoginViewModel vm) async {
@@ -129,24 +128,6 @@ class _LoginBodyState extends State<_LoginBody> {
                 ),
                 validator: _validateMobile,
               ),
-              if (state.needsInvite) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: const Key('invite'),
-                  controller: _invite,
-                  autofocus: true,
-                  autocorrect: false,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _sendCode(vm),
-                  decoration: const InputDecoration(
-                    labelText: 'Invite code',
-                    border: OutlineInputBorder(),
-                    helperText: 'Only for your first sign-in. Ask whoever runs the server.',
-                    helperMaxLines: 2,
-                  ),
-                  validator: _required,
-                ),
-              ],
               ..._error(state, theme),
               const SizedBox(height: 20),
               _primaryButton(state, label: 'Send code', onPressed: () => _sendCode(vm)),

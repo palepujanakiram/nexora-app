@@ -136,24 +136,13 @@ void main() {
     expect(find.text('Sign in with your mobile number'), findsOneWidget);
   });
 
-  testWidgets('asks for the invite code the first time a number signs in', (tester) async {
+  testWidgets('says User not found for a number with no login, without asking for anything else', (tester) async {
     await pump(tester);
-    server.inviteCode = 'family';
-    final invite = find.byKey(const Key('invite'));
-    expect(invite, findsNothing);
-    await sendCode(tester);
-    expect(find.text('This number has no login yet. Enter the invite code from the server owner.'), findsOneWidget);
-    expect(find.text('Only for your first sign-in. Ask whoever runs the server.'), findsOneWidget);
-
-    await tester.tap(button('Send code'));
-    await tester.pump();
-    expect(find.text('Required'), findsOneWidget);
-
-    await tester.enterText(invite, 'family');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-    expect(server.calls.last, 'requestCode ${ServerSession.defaultUrl} +919876543210 family');
-    expect(find.text('Enter the code'), findsOneWidget);
+    server.unknownPhones.add('+919030863940');
+    await sendCode(tester, '9030863940');
+    expect(find.text('User not found.'), findsOneWidget);
+    expect(find.textContaining('Invite'), findsNothing);
+    expect(find.text('Sign in with your mobile number'), findsOneWidget);
   });
 
   testWidgets('sends the code through another server, and can go back to the default', (tester) async {
