@@ -14,8 +14,8 @@ import 'package:nexora_app/screens/activity/view/activity_view.dart';
 import 'package:nexora_app/screens/home/model/home_tab.dart';
 import 'package:nexora_app/screens/home/view/home_view.dart';
 import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
-import 'package:nexora_app/screens/settings/usecase/connect_server_usecase.dart';
-import 'package:nexora_app/screens/settings/usecase/disconnect_server_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/change_password_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/sign_out_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_proxy_worker_script_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/test_proxy_usecase.dart';
@@ -65,8 +65,8 @@ void main() {
       ..reset()
       ..registerFactory(() => SyncFromServerUseCase([accounts, activity]))
       ..registerFactory(() => WatchServerUseCase(server))
-      ..registerFactory(() => ConnectServerUseCase(server, noSwitch))
-      ..registerFactory(() => DisconnectServerUseCase(server, noSwitch))
+      ..registerFactory(() => SignOutUseCase(server, noSwitch))
+      ..registerFactory(() => ChangePasswordUseCase(server, noSwitch))
       ..registerFactory(() => GetServerIpUseCase(server))
       ..registerFactory(() => WatchAccountsUseCase(accounts))
       ..registerFactory(() => WatchSettingsUseCase(settings))

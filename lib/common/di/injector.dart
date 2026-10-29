@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -11,10 +13,12 @@ import '../../screens/accounts/usecase/set_access_token_usecase.dart';
 import '../../screens/accounts/usecase/toggle_account_enabled_usecase.dart';
 import '../../screens/activity/usecase/clear_activity_usecase.dart';
 import '../../screens/activity/usecase/watch_activity_usecase.dart';
-import '../../screens/settings/usecase/connect_server_usecase.dart';
-import '../../screens/settings/usecase/disconnect_server_usecase.dart';
+import '../../screens/login/usecase/get_sign_in_notice_usecase.dart';
+import '../../screens/login/usecase/sign_in_usecase.dart';
+import '../../screens/settings/usecase/change_password_usecase.dart';
 import '../../screens/settings/usecase/get_proxy_worker_script_usecase.dart';
 import '../../screens/settings/usecase/get_server_ip_usecase.dart';
+import '../../screens/settings/usecase/sign_out_usecase.dart';
 import '../../screens/settings/usecase/test_proxy_usecase.dart';
 import '../../screens/settings/usecase/update_settings_usecase.dart';
 import '../../screens/settings/usecase/watch_server_usecase.dart';
@@ -51,6 +55,10 @@ final sl = GetIt.instance;
 /// leaving a server), so the screens rebuild their view models on the new ones.
 final dataGeneration = ValueNotifier<int>(0);
 
+/// The server session the data repositories are wired to; null while signed
+/// out. The app shows the login screen until there is one.
+final activeSession = ValueNotifier<ServerSession?>(null);
+
 /// Wires data sources → repositories → use cases. View models are created
 /// by their views and pull use cases from [sl].
 Future<void> configureDependencies({http.Client? httpClient}) async {
@@ -67,9 +75,14 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
     ..registerSingleton<ServerRepository>(server)
     ..registerSingleton<ProxyRepository>(ProxyRepositoryImpl(client));
 
-  /// Accounts, broker logins, orders and activity live on this device, or on
-  /// the server while signed in to one.
+  /// Accounts, broker logins, orders and activity live on the server while
+  /// signed in. Signed out, the device-only repositories stand in; the login
+  /// screen doesn't use them.
+  var wired = false;
   Future<void> switchDataSource(ServerSession? session) async {
+    if (wired && identical(session, activeSession.value)) return;
+    wired = true;
+    activeSession.value = session;
     for (final unregister in [
       sl.unregisterIfRegistered<AccountRepository>,
       sl.unregisterIfRegistered<ActivityRepository>,
@@ -97,12 +110,21 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
 
   await switchDataSource(server.current);
   sl.registerSingleton<SwitchDataSource>(switchDataSource);
+  // The server ended the session (expired, or the password changed elsewhere).
+  server.watch().listen((s) {
+    if (s == null) unawaited(switchDataSource(null));
+  });
 
   // Shared use cases
   sl
     ..registerFactory(() => WatchAccountsUseCase(sl()))
     ..registerFactory(() => WatchSettingsUseCase(sl()))
     ..registerFactory(() => SyncFromServerUseCase([sl<AccountRepository>(), sl<ActivityRepository>()]));
+
+  // Login screen
+  sl
+    ..registerFactory(() => SignInUseCase(sl(), sl()))
+    ..registerFactory(() => GetSignInNoticeUseCase(sl()));
 
   // Signal screen
   sl
@@ -133,8 +155,8 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
     ..registerFactory(() => GetProxyWorkerScriptUseCase(sl()))
     ..registerFactory(() => TestProxyUseCase(sl()))
     ..registerFactory(() => WatchServerUseCase(sl()))
-    ..registerFactory(() => ConnectServerUseCase(sl(), sl()))
-    ..registerFactory(() => DisconnectServerUseCase(sl(), sl()))
+    ..registerFactory(() => SignOutUseCase(sl(), sl()))
+    ..registerFactory(() => ChangePasswordUseCase(sl(), sl()))
     ..registerFactory(() => GetServerIpUseCase(sl()));
 }
 

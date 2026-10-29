@@ -89,6 +89,15 @@ class FakeServerRepository implements ServerRepository {
   Stream<ServerSession?> watch() => _cache.watch();
 
   @override
+  String? endedReason;
+
+  /// What the server does when its token is rejected.
+  void expire([String reason = 'Your session ended. Sign in again.']) {
+    endedReason = reason;
+    _cache.value = null;
+  }
+
+  @override
   Future<ServerSession> signIn({required String url, required String email, required String password}) async {
     calls.add('signIn $url $email');
     return _start(url, email);
@@ -120,6 +129,14 @@ class FakeServerRepository implements ServerRepository {
   Future<String> serverIp() async {
     if (failWith != null) throw ServerApiException(failWith!);
     return '203.0.113.7';
+  }
+
+  @override
+  Future<ServerSession> changePassword({required String currentPassword, required String newPassword}) async {
+    calls.add('changePassword $currentPassword $newPassword');
+    if (failWith != null) throw ServerApiException(failWith!);
+    final session = current!;
+    return _cache.value = ServerSession(url: session.url, token: 'tok2', email: session.email);
   }
 }
 

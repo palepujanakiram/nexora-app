@@ -1,9 +1,8 @@
 import '../../../common/domain/repositories/server_repository.dart';
 
-/// Signs this device out of the server; the app goes back to the accounts
-/// stored on this device.
-class DisconnectServerUseCase {
-  const DisconnectServerUseCase(this._server, this._switchTo);
+/// Signs this device out of the server; the app goes back to the login screen.
+class SignOutUseCase {
+  const SignOutUseCase(this._server, this._switchTo);
 
   final ServerRepository _server;
   final SwitchDataSource _switchTo;

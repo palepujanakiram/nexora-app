@@ -4,32 +4,32 @@ import 'package:flutter/foundation.dart';
 
 import '../../../common/domain/entities/server_session.dart';
 import '../model/server_state.dart';
-import '../usecase/connect_server_usecase.dart';
-import '../usecase/disconnect_server_usecase.dart';
+import '../usecase/change_password_usecase.dart';
 import '../usecase/get_server_ip_usecase.dart';
+import '../usecase/sign_out_usecase.dart';
 import '../usecase/watch_server_usecase.dart';
 
-/// Connecting this device to a nexora-backend server, from Settings.
+/// Settings → Server: who's signed in, the server's IP, password and sign-out.
 class ServerViewModel extends ChangeNotifier {
-  ServerViewModel(WatchServerUseCase watch, this._connect, this._disconnect, this._serverIp) {
+  ServerViewModel(WatchServerUseCase watch, this._signOut, this._changePassword, this._serverIp) {
     _sub = watch().listen((s) => _emit(
           s == null ? _state.copyWith(clearSession: true, clearServerIp: true) : _state.copyWith(session: s),
         ));
   }
 
-  final ConnectServerUseCase _connect;
-  final DisconnectServerUseCase _disconnect;
+  final SignOutUseCase _signOut;
+  final ChangePasswordUseCase _changePassword;
   final GetServerIpUseCase _serverIp;
   late final StreamSubscription<ServerSession?> _sub;
 
   ServerState _state = const ServerState();
   ServerState get state => _state;
 
-  /// Signs in, or creates a login when [inviteCode] is given. Returns true on success.
-  Future<bool> connect({required String url, required String email, required String password, String? inviteCode}) =>
-      _run(() => _connect(url: url, email: email, password: password, inviteCode: inviteCode));
+  Future<bool> signOut() => _run(_signOut.call);
 
-  Future<bool> disconnect() => _run(_disconnect.call);
+  /// Returns true once the server accepted the new password.
+  Future<bool> changePassword({required String currentPassword, required String newPassword}) =>
+      _run(() => _changePassword(currentPassword: currentPassword, newPassword: newPassword));
 
   Future<void> loadServerIp() async {
     _emit(_state.copyWith(loadingIp: true, clearError: true));

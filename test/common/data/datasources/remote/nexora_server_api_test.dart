@@ -90,6 +90,21 @@ void main() {
       expect(await api((_) => http.Response('[1,2]', 200)).get('/x'), isEmpty);
     });
 
+    test('reports a rejected token, but not a failed sign-in without one', () async {
+      var rejected = 0;
+      final unauthorized = MockClient((_) async => http.Response('{"error":{"message":"Sign in again."}}', 401));
+      final signedIn = NexoraServerApi(unauthorized, baseUrl: 'https://srv.test', token: 't', onUnauthorized: () => rejected++);
+      await expectLater(signedIn.get('/x'), throwsA(isA<ServerApiException>()));
+      expect(rejected, 1);
+
+      final signingIn = NexoraServerApi(unauthorized, baseUrl: 'https://srv.test', onUnauthorized: () => rejected++);
+      await expectLater(signingIn.post('/v1/auth/login', {}), throwsA(isA<ServerApiException>()));
+      final forbidden = NexoraServerApi(MockClient((_) async => http.Response('{}', 403)),
+          baseUrl: 'https://srv.test', token: 't', onUnauthorized: () => rejected++);
+      await expectLater(forbidden.get('/x'), throwsA(isA<ServerApiException>()));
+      expect(rejected, 1);
+    });
+
     test('explains an unreachable server', () async {
       final client = NexoraServerApi(MockClient((_) => throw const SocketLikeException()), baseUrl: 'https://srv.test');
       await expectLater(

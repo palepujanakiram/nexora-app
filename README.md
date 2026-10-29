@@ -26,7 +26,7 @@ into orders on any number of **Zerodha (Kite Connect)**, **Upstox** and **Groww*
 - **Activity log** of every execution, with order IDs or errors.
 - **Optional server mode:** connect to your own [nexora-backend](https://github.com/palepujanakiram/nexora-backend) so every device shares the same accounts and orders go out from one static IP. A signal already placed from another device is caught before it's placed twice.
 - **Secure key storage** (Keychain on iOS, Keystore-encrypted on Android).
-- **Settings:** server connection, theme colour, entry price within the range, exit orders, target choice, and a web CORS proxy with a built-in setup guide and health check.
+- **Settings:** signed-in user, server IP, change password and sign out, theme colour, entry price within the range, exit orders and target choice.
 
 ## Supported brokers
 
@@ -70,8 +70,7 @@ The app has four tabs: **Signal**, **Accounts**, **Activity** and **Settings**. 
 
 | | |
 |---|---|
-| <img src="docs/screenshots/settings.jpg" width="260" alt="Settings"> | <ul><li>**Server**: connect to your nexora-backend (see [Server mode](#server-mode-one-static-ip-for-every-device)).</li><li>**Theme colour**: eleven colours, saved on the device.</li><li>**Limit price within the entry range**: low end, middle or high end (for `AT 400-420`: 400, 410 or 420).</li><li>**Exit orders**: entry only, or entry + stop loss & target (GTT). Groww always places the entry only.</li><li>**Target used for the GTT exit**: TGT1–TGT3; falls back to the last target if the signal has fewer.</li><li>**Web CORS proxy** (web only, see below; hidden while connected to a server).</li></ul> |
-| <img src="docs/screenshots/proxy-guide.jpg" width="260" alt="Cloudflare Worker proxy guide"> | **Web only.** Browsers block direct calls to the broker APIs, so the web build needs your own proxy. **How to create the proxy** walks you through a free Cloudflare Worker in four steps: **Copy proxy code** copies the worker (or **View code** shows it to select by hand), and the links open Cloudflare's dashboard and docs.<br><br>**Test proxy** checks the URL and tells you whether it's connected, rejecting this app's address, not the NexoraApp proxy, or unreachable. |
+| <img src="docs/screenshots/settings.jpg" width="260" alt="Settings"> | <ul><li>**Server**: who's signed in, the server's IP, **Change password** and **Sign out** (see [Server mode](#server-mode-one-static-ip-for-every-device)).</li><li>**Theme colour**: eleven colours, saved on the device.</li><li>**Limit price within the entry range**: low end, middle or high end (for `AT 400-420`: 400, 410 or 420).</li><li>**Exit orders**: entry only, or entry + stop loss & target (GTT). Groww always places the entry only.</li><li>**Target used for the GTT exit**: TGT1–TGT3; falls back to the last target if the signal has fewer.</li></ul> |
 
 ## Signal format
 
@@ -106,17 +105,26 @@ In server mode the broker secrets and access tokens live on the server instead, 
 
 Brokers accept API orders only from the static IP registered with them. With several phones, tablets or a browser, each device would need that IP. [nexora-backend](https://github.com/palepujanakiram/nexora-backend) solves this: the app talks to your server, and the server talks to the brokers from its one static IP.
 
+The app requires a sign-in: it opens on the login screen and nothing else is available until you're signed in.
+
 1. Deploy nexora-backend (its [Fly.io guide](https://github.com/palepujanakiram/nexora-backend/blob/main/docs/deploy-fly.md) takes about 15 minutes). The Mumbai region gives it a static egress IP.
-2. In the app: **Settings → Server → Connect to a server**. Enter the server address and your email and password. The first time, turn on **I'm new** and enter the invite code (the server's `SIGNUP_CODE`).
-3. Tap **Show server IP** and register that IP with Zerodha, Upstox and Groww.
-4. Add your accounts and log in to the brokers as usual. Each account is now stored on the server and shared by all your devices. One broker login per day covers every device.
+2. Open the app and sign in with your email and password. The first time, tap **New here? Create a login** and enter the invite code (the server's `SIGNUP_CODE`).
+3. Tap **Settings → Server → Show server IP** and register that IP with Zerodha, Upstox and Groww.
+4. Add your accounts and log in to the brokers as usual. Each account is stored on the server and shared by all your devices. One broker login per day covers every device.
 
-While connected:
+The login screen uses `https://nexora-backend-jp.fly.dev` unless you change it under **Server**. To build the app for a different default server:
 
-- **Signal**, **Accounts** and **Activity** work the same, but the server places the orders and keeps the activity log for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
+```bash
+flutter build web --dart-define=NEXORA_SERVER_URL=https://your-app.fly.dev
+```
+
+Once signed in:
+
+- **Signal**, **Accounts** and **Activity** run on the server: it places the orders and keeps the activity log for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
 - **Duplicate guard:** if the same signal was already placed on an account in the last 15 minutes (say, from another phone), the server refuses it. The result offers **Place anyway** for a deliberate repeat.
-- The web CORS proxy isn't used. The web build works if the server's `CORS_ORIGINS` lists its address.
-- **Disconnect** (Settings → Server) returns the app to the accounts stored on the device. Nothing on the server is deleted.
+- The web build works if the server's `CORS_ORIGINS` lists its address.
+- **Change password** (Settings → Server) signs out every other device; this one stays signed in.
+- **Sign out** returns to the login screen. Nothing on the server is deleted. When a session expires (after `SESSION_DAYS`) or the password is changed on another device, the app goes back to the login screen and says so.
 
 ## Getting started
 
@@ -132,12 +140,12 @@ Builds:
 ```bash
 flutter build apk             # Android (applicationId com.janakiram.nexora_app)
 flutter build ios             # iOS (bundle ID com.srisarani.nexora, team WR859F2ZHY; needs Xcode and signing)
-flutter build web             # web, served from build/web (needs the CORS proxy below)
+flutter build web             # web, served from build/web (add its address to the server's CORS_ORIGINS)
 ```
 
 **TestFlight:** `cd ios && bundle exec fastlane beta` runs the checks, builds, signs and uploads the iOS app. One-time setup (App Store Connect app record and API key) is in [docs/testflight.md](docs/testflight.md).
 
-**Web needs a CORS proxy.** Browsers block direct calls to `api.kite.trade`, `api.upstox.com` and `api.groww.in`. Put your own proxy URL in **Settings → Web CORS proxy**; it's prepended to every API URL. iOS and Android don't need one. A ready-made Cloudflare Worker for testing (orders blocked by default) is in [proxy/cloudflare-worker](proxy/cloudflare-worker/README.md), and the app has a step-by-step guide for it under Settings.
+Every build talks to the brokers through nexora-backend, so the web build doesn't need a CORS proxy. The Cloudflare Worker in [proxy/cloudflare-worker](proxy/cloudflare-worker/README.md) is from before sign-in was required. The app no longer offers it.
 
 ## Testing with the real broker APIs
 
@@ -160,7 +168,6 @@ Each guide goes through the same six parts:
 
 Key points before going live:
 
-- **Use the phone app, or server mode.** On its own, the web version can log in and paper trade, but it can't place orders: browsers need the CORS proxy, which blocks orders, and Cloudflare's addresses aren't static. In [server mode](#server-mode-one-static-ip-for-every-device) every device, the web included, places orders through the server.
 - **A static IP is required for API orders** under SEBI's rules (Zerodha has enforced it since 1 April 2025, Upstox since 1 April 2026, and Groww asks for one on its API keys page). Use [server mode](#server-mode-one-static-ip-for-every-device) so every device shares the server's IP, or get one from your broadband provider or a VPN with a dedicated IP. Register it on the broker's developer site.
 - **Zerodha:** choose the paid **Connect** plan (₹500/month). The free Personal plan has no market data, which the app needs to find contracts.
 - **Upstox:** only index options are supported for now (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX).

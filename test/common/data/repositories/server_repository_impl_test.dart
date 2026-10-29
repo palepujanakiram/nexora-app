@@ -27,6 +27,10 @@ void main() {
             },
         'POST /v1/auth/logout': (_) => http.Response('', 204),
         'GET /v1/server/ip': (_) => {'ip': '203.0.113.7', 'liveTrading': false},
+        'POST /v1/auth/password': (_) => {
+              'token': 'T3',
+              'user': {'id': 'u', 'email': 'me@example.com'},
+            },
       });
 
   test('starts signed out, signs in, remembers the session and reloads it', () async {
@@ -78,6 +82,65 @@ void main() {
     await repo.signOut();
     expect(repo.current, isNull);
     expect(await storage.readJson('server_session_v1'), isNull);
+  });
+
+  test('forgets the session when the server rejects its token, and says why', () async {
+    final fake = server();
+    final repo = await ServerRepositoryImpl.load(fake.client, storage);
+    final session = await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'pw');
+    expect(repo.endedReason, isNull);
+
+    fake.routes['GET /v1/server/ip'] = (_) => http.Response('{"error":{"code":"unauthorized","message":"x"}}', 401);
+    await expectLater(repo.serverIp(), throwsA(isA<ServerApiException>()));
+    await pumpEventQueue();
+    expect(repo.current, isNull);
+    expect(repo.endedReason, 'Your session ended. Sign in again.');
+    expect(await storage.readJson('server_session_v1'), isNull);
+
+    // A late 401 from an old session doesn't touch a newer one.
+    await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'pw');
+    expect(repo.endedReason, isNull);
+    await expectLater(repo.api(session).get('/v1/server/ip'), throwsA(isA<ServerApiException>()));
+    await pumpEventQueue();
+    expect(repo.current, isNotNull);
+  });
+
+  test('a rejected sign-out still signs out, without an expiry notice', () async {
+    final fake = server();
+    final repo = await ServerRepositoryImpl.load(fake.client, storage);
+    await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'pw');
+    fake.routes['POST /v1/auth/logout'] = (_) => http.Response('{"error":{"code":"unauthorized","message":"x"}}', 401);
+    await repo.signOut();
+    await pumpEventQueue();
+    expect(repo.current, isNull);
+    expect(repo.endedReason, isNull);
+  });
+
+  test('changes the password and keeps the new session', () async {
+    final fake = server();
+    final repo = await ServerRepositoryImpl.load(fake.client, storage);
+    await expectLater(repo.changePassword(currentPassword: 'a', newPassword: 'b'),
+        throwsA(isA<ServerApiException>().having((e) => e.message, 'message', 'Sign in first.')));
+
+    await repo.signIn(url: 'https://srv.test', email: 'me@example.com', password: 'old password');
+    final session = await repo.changePassword(currentPassword: 'old password', newPassword: 'new password');
+    expect(session.token, 'T3');
+    expect(repo.current, same(session));
+    expect(fake.requests.last.headers['Authorization'], 'Bearer T1');
+    expect(fake.bodyOf('POST /v1/auth/password'), {
+      'currentPassword': 'old password',
+      'newPassword': 'new password',
+      'device': ServerRepositoryImpl.deviceName,
+    });
+    expect((await ServerRepositoryImpl.load(fake.client, storage)).current?.token, 'T3');
+
+    // A wrong current password is a 401 too, but must not sign the user out.
+    fake.routes['POST /v1/auth/password'] =
+        (_) => http.Response('{"error":{"code":"unauthorized","message":"Current password is wrong."}}', 401);
+    await expectLater(repo.changePassword(currentPassword: 'x', newPassword: 'new password 2'),
+        throwsA(isA<ServerApiException>().having((e) => e.message, 'message', 'Current password is wrong.')));
+    await pumpEventQueue();
+    expect(repo.current?.token, 'T3');
   });
 
   test('names the device by platform', () {

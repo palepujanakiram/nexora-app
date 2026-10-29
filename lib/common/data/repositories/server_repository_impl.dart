@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -31,11 +33,33 @@ class ServerRepositoryImpl implements ServerRepository {
   @override
   ServerSession? get current => _cache.value;
 
+  String? _endedReason;
+
+  @override
+  String? get endedReason => _endedReason;
+
   @override
   Stream<ServerSession?> watch() => _cache.watch();
 
-  /// An API client for the signed-in server.
-  NexoraServerApi api(ServerSession session) => NexoraServerApi(_http, baseUrl: session.url, token: session.token);
+  /// An API client for the signed-in server. When the server rejects the
+  /// session's token, the session is forgotten, which signs the app out.
+  NexoraServerApi api(ServerSession session) => NexoraServerApi(
+        _http,
+        baseUrl: session.url,
+        token: session.token,
+        onUnauthorized: () => unawaited(_expire(session)),
+      );
+
+  Future<void> _expire(ServerSession session) async {
+    if (!identical(current, session)) return;
+    _endedReason = 'Your session ended. Sign in again.';
+    await _forget();
+  }
+
+  Future<void> _forget() async {
+    _cache.value = null;
+    await _storage.delete(_key);
+  }
 
   @override
   Future<ServerSession> signIn({required String url, required String email, required String password}) =>
@@ -57,7 +81,23 @@ class ServerRepositoryImpl implements ServerRepository {
 
   Future<ServerSession> _start(String url, String path, Map<String, Object?> body) async {
     final baseUrl = NexoraServerApi.normalizeUrl(url);
-    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post(path, body);
+    return _save(baseUrl, await NexoraServerApi(_http, baseUrl: baseUrl).post(path, body));
+  }
+
+  @override
+  Future<ServerSession> changePassword({required String currentPassword, required String newPassword}) async {
+    final session = current;
+    if (session == null) throw ServerApiException('Sign in first.');
+    final json = await NexoraServerApi(_http, baseUrl: session.url, token: session.token).post('/v1/auth/password', {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+      'device': deviceName,
+    });
+    return _save(session.url, json);
+  }
+
+  /// Stores the session from a sign-in reply (`{ token, user }`).
+  Future<ServerSession> _save(String baseUrl, Map<String, dynamic> json) async {
     final token = json['token'];
     final user = json['user'];
     if (token is! String || user is! Map) {
@@ -65,6 +105,7 @@ class ServerRepositoryImpl implements ServerRepository {
     }
     final session = ServerSession(url: baseUrl, token: token, email: user['email'] as String);
     await _storage.writeJson(_key, {'url': session.url, 'token': session.token, 'email': session.email});
+    _endedReason = null;
     _cache.value = session;
     return session;
   }
@@ -74,12 +115,12 @@ class ServerRepositoryImpl implements ServerRepository {
     final session = current;
     if (session == null) return;
     try {
-      await api(session).post('/v1/auth/logout');
+      await NexoraServerApi(_http, baseUrl: session.url, token: session.token).post('/v1/auth/logout');
     } on ServerApiException {
       // Already ended or unreachable: forgetting it here is what matters.
     }
-    await _storage.delete(_key);
-    _cache.value = null;
+    _endedReason = null;
+    await _forget();
   }
 
   @override

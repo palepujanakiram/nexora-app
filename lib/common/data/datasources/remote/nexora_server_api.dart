@@ -7,12 +7,21 @@ import '../../../error/exceptions.dart';
 
 /// JSON client for a nexora-backend server. See the server's docs/api.md.
 class NexoraServerApi {
-  NexoraServerApi(this._http, {required this.baseUrl, this.token, this.timeout = const Duration(seconds: 30)});
+  NexoraServerApi(
+    this._http, {
+    required this.baseUrl,
+    this.token,
+    this.onUnauthorized,
+    this.timeout = const Duration(seconds: 30),
+  });
 
   final http.Client _http;
   final String baseUrl;
   final String? token;
   final Duration timeout;
+
+  /// Called when the server rejects [token] (HTTP 401): the session ended or expired.
+  final void Function()? onUnauthorized;
 
   /// Normalises what the user typed: trims it, drops trailing slashes and
   /// insists on https (plain http only for a server on this machine or LAN).
@@ -63,6 +72,7 @@ class NexoraServerApi {
           statusCode: res.statusCode);
     }
     final json = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+    if (res.statusCode == 401 && token != null) onUnauthorized?.call();
     if (res.statusCode >= 400) {
       final error = json['error'];
       final message = error is Map ? error['message'] as String? : null;

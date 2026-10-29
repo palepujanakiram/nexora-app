@@ -17,8 +17,10 @@ import 'package:nexora_app/common/domain/entities/server_session.dart';
 import 'package:nexora_app/common/domain/repositories/server_repository.dart';
 import 'package:nexora_app/common/domain/repositories/signal_execution_repository.dart';
 import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
-import 'package:nexora_app/screens/settings/usecase/connect_server_usecase.dart';
-import 'package:nexora_app/screens/settings/usecase/disconnect_server_usecase.dart';
+import 'package:nexora_app/screens/login/usecase/get_sign_in_notice_usecase.dart';
+import 'package:nexora_app/screens/login/usecase/sign_in_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/change_password_usecase.dart';
+import 'package:nexora_app/screens/settings/usecase/sign_out_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
@@ -94,8 +96,10 @@ void main() {
       () => sl<TestProxyUseCase>(),
       () => sl<SyncFromServerUseCase>(),
       () => sl<WatchServerUseCase>(),
-      () => sl<ConnectServerUseCase>(),
-      () => sl<DisconnectServerUseCase>(),
+      () => sl<SignInUseCase>(),
+      () => sl<GetSignInNoticeUseCase>(),
+      () => sl<SignOutUseCase>(),
+      () => sl<ChangePasswordUseCase>(),
       () => sl<GetServerIpUseCase>(),
     ];
     for (final resolve in resolvers) {
@@ -119,6 +123,7 @@ void main() {
     await configureDependencies();
     expect(sl<ServerRepository>(), isA<ServerRepositoryImpl>());
     expect(sl<ServerRepository>().current, isNull);
+    expect(activeSession.value, isNull);
     expect(sl.isRegistered<SignalExecutionRepository>(), isFalse);
     expect(sl<ExecuteSignalUseCase>().remote, isNull);
   });
@@ -133,6 +138,7 @@ void main() {
     await configureDependencies(httpClient: client);
 
     expect(sl<ServerRepository>().current?.email, 'me@x.com');
+    expect(activeSession.value, same(sl<ServerRepository>().current));
     expect(sl<AccountRepository>(), isA<ServerAccountRepository>());
     expect(sl<ActivityRepository>(), isA<ServerActivityRepository>());
     expect(sl<BrokerRepository>(), isA<ServerBrokerRepository>());
@@ -146,8 +152,29 @@ void main() {
     expect(sl<AccountRepository>().current.single.label, 'Mine');
     expect(sl.isRegistered<SignalExecutionRepository>(), isFalse);
     expect(dataGeneration.value, generation + 2);
+    expect(activeSession.value, isNull);
+
+    // Switching to the session already wired changes nothing.
+    await sl<SwitchDataSource>()(null);
+    expect(dataGeneration.value, generation + 2);
 
     await sl<SwitchDataSource>()(const ServerSession(url: 'https://srv.test', token: 't', email: 'e'));
     expect(sl<AccountRepository>(), isA<ServerAccountRepository>());
+  });
+
+  test('when the server rejects the token, the app is signed out', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'server_session_v1': '{"url":"https://srv.test","token":"tok","email":"me@x.com"}',
+    });
+    final client = MockClient((_) async => http.Response('{"error":{"code":"unauthorized","message":"x"}}', 401));
+    await configureDependencies(httpClient: client);
+    expect(activeSession.value, isNotNull);
+
+    await expectLater((sl<AccountRepository>() as ServerAccountRepository).refresh(), throwsA(anything));
+    await pumpEventQueue();
+    expect(sl<ServerRepository>().current, isNull);
+    expect(activeSession.value, isNull);
+    expect(sl<AccountRepository>(), isA<AccountRepositoryImpl>());
+    expect(sl<ServerRepository>().endedReason, 'Your session ended. Sign in again.');
   });
 }

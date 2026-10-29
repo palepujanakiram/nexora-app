@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'common/di/injector.dart';
 import 'common/domain/entities/app_settings.dart';
+import 'common/domain/entities/server_session.dart';
 import 'common/domain/repositories/settings_repository.dart';
 import 'common/domain/usecases/watch_settings_usecase.dart';
 import 'common/presentation/theme/app_theme.dart';
 import 'screens/home/view/home_view.dart';
+import 'screens/login/view/login_view.dart';
 
 class NexoraApp extends StatefulWidget {
   const NexoraApp({super.key});
@@ -30,7 +32,11 @@ class _NexoraAppState extends State<NexoraApp> {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(color),
           darkTheme: AppTheme.dark(color),
-          home: const HomeView(),
+          // Signed out (or the server ended the session): the login screen.
+          home: ValueListenableBuilder<ServerSession?>(
+            valueListenable: activeSession,
+            builder: (context, session, _) => session == null ? const LoginView() : const HomeView(),
+          ),
         );
       },
     );

@@ -1,9 +1,9 @@
 import '../../../common/domain/repositories/server_repository.dart';
 
-/// Signs this device in to a nexora-backend server (or creates a login with
-/// the owner's invite code), then moves the app's data to that server.
-class ConnectServerUseCase {
-  const ConnectServerUseCase(this._server, this._switchTo);
+/// Signs this device in to the nexora-backend server (or creates a login with
+/// the owner's invite code), then wires the app's data to that server.
+class SignInUseCase {
+  const SignInUseCase(this._server, this._switchTo);
 
   final ServerRepository _server;
   final SwitchDataSource _switchTo;

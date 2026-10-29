@@ -4,6 +4,10 @@
 class ServerSession {
   const ServerSession({required this.url, required this.token, required this.email});
 
+  /// The server the login screen starts with. Override at build time with
+  /// `--dart-define=NEXORA_SERVER_URL=https://…`.
+  static const defaultUrl = String.fromEnvironment('NEXORA_SERVER_URL', defaultValue: 'https://nexora-backend-jp.fly.dev');
+
   /// Base URL without a trailing slash, e.g. `https://nexora.fly.dev`.
   final String url;
 
