@@ -81,7 +81,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Send code'));
     await tester.runAsync(pumpEventQueue);
     await tester.pump();
-    expect(find.text('We sent a 6-digit code to +91 98765 43210.'), findsOneWidget);
+    expect(find.textContaining('We sent a 6-digit code to +91 98765 43210.', findRichText: true), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('code')), '123456');
     await tester.runAsync(pumpEventQueue);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
@@ -45,8 +47,11 @@ void main() {
 
   testWidgets('asks for the mobile number, then signs in with the texted code', (tester) async {
     await pump(tester);
-    expect(find.text('Sign in with your mobile number'), findsOneWidget);
-    expect(find.text('+91 '), findsOneWidget);
+    expect(find.text('SRISARANI\nSTOCKS'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Sign in with your mobile number. We will send you a one-time code.'), findsOneWidget);
+    expect(find.text('+91'), findsOneWidget);
+    expect(find.text('10-digit number'), findsOneWidget);
     expect(find.text(ServerSession.defaultUrl), findsOneWidget, reason: 'shown under Server');
     expect(ServerSession.defaultUrl, 'https://nexora-backend-jp.fly.dev');
 
@@ -60,8 +65,8 @@ void main() {
     expect(server.calls, ['requestCode ${ServerSession.defaultUrl} +919876543210']);
 
     expect(find.text('Enter the code'), findsOneWidget);
-    expect(find.text('We sent a 6-digit code to +91 98765 43210.'), findsOneWidget);
-    expect(find.text('Resend code in 30s'), findsOneWidget);
+    expect(find.textContaining('We sent a 6-digit code to +91 98765 43210.', findRichText: true), findsOneWidget);
+    expect(find.text('Resend code in 0:30'), findsOneWidget);
     expect(find.text('Server'), findsNothing);
 
     // A full code is checked as soon as it's in, e.g. when iOS fills it from the SMS.
@@ -94,7 +99,7 @@ void main() {
     expect(switches, isEmpty);
 
     await tester.enterText(code, '12345');
-    await tester.tap(button('Verify and sign in'));
+    await tester.tap(button('Verify and continue'));
     await tester.pump();
     expect(find.text('Enter the 6-digit code from the SMS.'), findsOneWidget);
 
@@ -115,17 +120,67 @@ void main() {
     await sendCode(tester);
     await tester.enterText(code, '11');
     await tester.pump(const Duration(seconds: 30));
-    expect(find.text('Resend code'), findsOneWidget);
-    await tester.tap(find.text('Resend code'));
+    expect(find.text('Didn\'t get it?'), findsOneWidget);
+    await tester.tap(find.text('Resend'));
     await tester.pump();
     expect(server.calls.where((c) => c.startsWith('requestCode')), hasLength(2));
     expect(tester.widget<TextField>(code).controller!.text, isEmpty, reason: 'a new code clears the old one');
-    expect(find.text('Resend code in 30s'), findsOneWidget);
+    expect(find.text('Resend code in 0:30'), findsOneWidget);
+    await tester.tap(find.text('Resend'));
+    await tester.pump();
+    expect(server.calls.where((c) => c.startsWith('requestCode')), hasLength(2), reason: 'Resend waits for the countdown');
 
     await tester.tap(find.text('Change number'));
     await tester.pump();
-    expect(find.text('Sign in with your mobile number'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
     expect(tester.widget<TextFormField>(mobile).controller!.text, '9876543210', reason: 'kept to fix a typo');
+
+    await sendCode(tester);
+    await tester.tap(find.text('← Back'));
+    await tester.pump();
+    expect(find.text('Welcome back'), findsOneWidget);
+  });
+
+  testWidgets('shows a spinner and blocks a second tap while the code is on its way', (tester) async {
+    await pump(tester);
+    server.hold = Completer<void>();
+    await sendCode(tester);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
+
+    server.hold!.complete();
+    await tester.pump();
+    expect(find.text('Enter the code'), findsOneWidget);
+  });
+
+  testWidgets('closes the keyboard when tapping outside the field', (tester) async {
+    await pump(tester);
+    await tester.tap(mobile);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<TextFormField>(), isNotNull);
+
+    await tester.tapAt(const Offset(400, 40));
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<TextFormField>(), isNull);
+  });
+
+  testWidgets('shows each typed digit in its own box', (tester) async {
+    await pump(tester);
+    await sendCode(tester);
+    await tester.enterText(code, '42');
+    await tester.pump();
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(server.calls.where((c) => c.startsWith('verifyCode')), isEmpty, reason: 'waits for all six digits');
+  });
+
+  testWidgets('uses darker colours in dark mode', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(theme: ThemeData(brightness: Brightness.dark), home: const LoginView()));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor, const Color(0xFF0E1A18));
   });
 
   testWidgets('shows why a code could not be sent', (tester) async {
@@ -133,7 +188,7 @@ void main() {
     server.failWith = "This number isn't allowed to sign in. Ask the server owner to add it.";
     await sendCode(tester);
     expect(find.text("This number isn't allowed to sign in. Ask the server owner to add it."), findsOneWidget);
-    expect(find.text('Sign in with your mobile number'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
   });
 
   testWidgets('says User not found for a number with no login, without asking for anything else', (tester) async {
@@ -142,7 +197,7 @@ void main() {
     await sendCode(tester, '9030863940');
     expect(find.text('User not found.'), findsOneWidget);
     expect(find.textContaining('Invite'), findsNothing);
-    expect(find.text('Sign in with your mobile number'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
   });
 
   testWidgets('sends the code through another server, and can go back to the default', (tester) async {

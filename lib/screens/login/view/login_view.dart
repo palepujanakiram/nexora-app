@@ -4,15 +4,19 @@ import 'package:provider/provider.dart';
 
 import '../../../common/di/injector.dart';
 import '../../../common/domain/entities/server_session.dart';
-import '../../../common/presentation/widgets/info_banner.dart';
 import '../model/login_state.dart';
 import '../usecase/send_code_usecase.dart';
 import '../viewmodel/login_viewmodel.dart';
+import 'widgets/code_boxes.dart';
+import 'widgets/login_style.dart';
 
 /// The first screen: everything else needs a signed-in nexora-backend server.
 /// Sign-in is a mobile number, then the one-time code texted to it.
 class LoginView extends StatelessWidget {
   const LoginView({super.key});
+
+  /// The wordmark at the top of the number screen.
+  static const brand = 'SRISARANI\nSTOCKS';
 
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
@@ -65,38 +69,32 @@ class _LoginBodyState extends State<_LoginBody> {
   // On success the app swaps this screen for home; nothing to do here.
   Future<void> _verify(LoginViewModel vm) => vm.verify(_code.text);
 
+  /// `28` → `0:28`.
+  static String _clock(int seconds) => '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<LoginViewModel>();
     final state = vm.state;
-    final theme = Theme.of(context);
+    final style = LoginStyle.of(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(Icons.candlestick_chart, size: 56, color: theme.colorScheme.primary),
-                  const SizedBox(height: 12),
-                  Text('Srisarani Stocks', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    state.enteringCode ? 'Enter the code' : 'Sign in with your mobile number',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: 24),
-                  if (state.notice != null && !state.enteringCode) ...[
-                    InfoBanner(text: state.notice!, color: theme.colorScheme.secondaryContainer),
-                    const SizedBox(height: 16),
-                  ],
-                  ...state.enteringCode ? _codeStep(vm, state, theme) : _phoneStep(vm, state, theme),
-                ],
+      backgroundColor: style.page,
+      // Tapping anywhere outside a field, or scrolling, closes the keyboard.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: state.enteringCode ? _codeStep(vm, state, style) : _phoneStep(vm, state, style),
+                ),
               ),
             ),
           ),
@@ -105,112 +103,183 @@ class _LoginBodyState extends State<_LoginBody> {
     );
   }
 
-  List<Widget> _phoneStep(LoginViewModel vm, LoginState state, ThemeData theme) => [
+  List<Widget> _phoneStep(LoginViewModel vm, LoginState state, LoginStyle style) => [
+        // Two lines, SRISARANI over STOCKS; shrinks on narrow screens rather than wrapping further.
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(LoginView.brand, style: style.brand, textAlign: TextAlign.center),
+        ),
+        const SizedBox(height: 40),
+        Text('Welcome back', style: style.title),
+        const SizedBox(height: 16),
+        Text('Sign in with your mobile number. We will send you a one-time code.', style: style.body),
+        if (state.notice != null) ...[
+          const SizedBox(height: 16),
+          Text(state.notice!, style: style.body.copyWith(color: style.link, fontWeight: FontWeight.w600)),
+        ],
+        const SizedBox(height: 32),
         Form(
           key: _phoneForm,
           autovalidateMode: _autovalidate,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                key: const Key('mobile'),
-                controller: _mobile,
-                keyboardType: TextInputType.phone,
-                autofillHints: const [AutofillHints.telephoneNumberNational],
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _sendCode(vm),
-                decoration: const InputDecoration(
-                  labelText: 'Mobile number',
-                  prefixText: '+91 ',
-                  border: OutlineInputBorder(),
-                  helperText: 'We\'ll text you a code to sign in.',
-                ),
-                validator: _validateMobile,
+              Text('Mobile number', style: style.label),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 62,
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    alignment: Alignment.center,
+                    decoration: style.box(),
+                    child: Text('+91', style: style.input),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      key: const Key('mobile'),
+                      controller: _mobile,
+                      style: style.input,
+                      cursorColor: style.focusedBorder,
+                      keyboardType: TextInputType.phone,
+                      autofillHints: const [AutofillHints.telephoneNumberNational],
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _sendCode(vm),
+                      decoration: style.fieldDecoration(hint: '10-digit number'),
+                      validator: _validateMobile,
+                    ),
+                  ),
+                ],
               ),
-              ..._error(state, theme),
-              const SizedBox(height: 20),
-              _primaryButton(state, label: 'Send code', onPressed: () => _sendCode(vm)),
-              const SizedBox(height: 8),
-              _serverTile(theme),
+              ..._error(state, style),
+              const SizedBox(height: 24),
+              _primaryButton(state, style, label: 'Send code', onPressed: () => _sendCode(vm)),
+              const SizedBox(height: 24),
+              _serverTile(style),
             ],
           ),
         ),
       ];
 
-  List<Widget> _codeStep(LoginViewModel vm, LoginState state, ThemeData theme) => [
-        Text('We sent a 6-digit code to ${state.sentTo}.', textAlign: TextAlign.center),
-        TextButton(
-          onPressed: state.busy ? null : vm.changeNumber,
-          child: const Text('Change number'),
+  List<Widget> _codeStep(LoginViewModel vm, LoginState state, LoginStyle style) => [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _link(style, '← Back', state.busy ? null : vm.changeNumber),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          key: const Key('code'),
+        const SizedBox(height: 28),
+        Text('Enter the code', style: style.title),
+        const SizedBox(height: 16),
+        Text.rich(
+          TextSpan(
+            style: style.body,
+            children: [
+              TextSpan(text: 'We sent a 6-digit code to ${state.sentTo}. '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: _link(style, 'Change number', state.busy ? null : vm.changeNumber),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        CodeBoxes(
+          fieldKey: const Key('code'),
           controller: _code,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          autofillHints: const [AutofillHints.oneTimeCode],
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-          textAlign: TextAlign.center,
-          style: theme.textTheme.headlineSmall?.copyWith(letterSpacing: 8),
-          decoration: const InputDecoration(labelText: 'Code', border: OutlineInputBorder()),
+          style: style,
           // A full code is checked straight away, e.g. when iOS fills it in from the SMS.
           onChanged: (v) {
             if (v.length == 6) _verify(vm);
           },
           onSubmitted: (_) => _verify(vm),
         ),
-        ..._error(state, theme),
+        ..._error(state, style),
         const SizedBox(height: 20),
-        _primaryButton(state, label: 'Verify and sign in', onPressed: () => _verify(vm)),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: state.busy || state.resendIn > 0 ? null : () => _resend(vm),
-          child: Text(state.resendIn > 0 ? 'Resend code in ${state.resendIn}s' : 'Resend code'),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                state.resendIn > 0 ? 'Resend code in ${_clock(state.resendIn)}' : 'Didn\'t get it?',
+                style: style.label,
+              ),
+            ),
+            _link(style, 'Resend', state.busy || state.resendIn > 0 ? null : () => _resend(vm)),
+          ],
         ),
+        const SizedBox(height: 24),
+        _primaryButton(state, style, label: 'Verify and continue', onPressed: () => _verify(vm)),
       ];
 
-  List<Widget> _error(LoginState state, ThemeData theme) => [
+  /// Bold teal text that acts as a button; greyed out when [onTap] is null.
+  Widget _link(LoginStyle style, String text, VoidCallback? onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            text,
+            style: style.linkText.copyWith(color: onTap == null ? style.muted.withValues(alpha: 0.6) : null),
+          ),
+        ),
+      );
+
+  List<Widget> _error(LoginState state, LoginStyle style) => [
         if (state.error != null) ...[
-          const SizedBox(height: 12),
-          Text(state.error!, style: TextStyle(color: theme.colorScheme.error)),
+          const SizedBox(height: 14),
+          Text(state.error!, style: style.errorText),
         ],
       ];
 
-  Widget _primaryButton(LoginState state, {required String label, required VoidCallback onPressed}) => FilledButton(
+  Widget _primaryButton(LoginState state, LoginStyle style, {required String label, required VoidCallback onPressed}) =>
+      FilledButton(
         onPressed: state.busy ? null : onPressed,
-        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+        style: style.primaryButton,
         child: state.busy
-            ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            ? SizedBox.square(
+                dimension: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: style.onButton),
+              )
             : Text(label),
       );
 
-  Widget _serverTile(ThemeData theme) => ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(bottom: 8),
-        title: Text('Server', style: theme.textTheme.titleSmall),
-        subtitle: ValueListenableBuilder(
-          valueListenable: _url,
-          builder: (_, value, _) => Text(value.text.trim(), overflow: TextOverflow.ellipsis),
-        ),
-        children: [
-          TextFormField(
-            controller: _url,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            decoration: InputDecoration(
-              labelText: 'Server address',
-              border: const OutlineInputBorder(),
-              helperText: 'Change only if you run your own nexora-backend.',
-              suffixIcon: IconButton(
-                tooltip: 'Use the default server',
-                icon: const Icon(Icons.restart_alt),
-                onPressed: () => _url.text = ServerSession.defaultUrl,
-              ),
+  /// Where the app signs in. Collapsed: most people never change it.
+  Widget _serverTile(LoginStyle style) => Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          iconColor: style.muted,
+          collapsedIconColor: style.muted,
+          title: Text('Server', style: style.label),
+          subtitle: ValueListenableBuilder(
+            valueListenable: _url,
+            builder: (_, value, _) => Text(
+              value.text.trim(),
+              overflow: TextOverflow.ellipsis,
+              style: style.label.copyWith(fontSize: 12),
             ),
-            validator: _required,
           ),
-        ],
+          children: [
+            TextFormField(
+              controller: _url,
+              style: style.input.copyWith(fontSize: 15),
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: style.fieldDecoration().copyWith(
+                    labelText: 'Server address',
+                    helperText: 'Change only if you run your own nexora-backend.',
+                    suffixIcon: IconButton(
+                      tooltip: 'Use the default server',
+                      icon: const Icon(Icons.restart_alt),
+                      onPressed: () => _url.text = ServerSession.defaultUrl,
+                    ),
+                  ),
+              validator: _required,
+            ),
+          ],
+        ),
       );
 }

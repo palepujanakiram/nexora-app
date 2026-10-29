@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
 import 'package:nexora_app/common/domain/entities/execution_result.dart';
@@ -107,9 +109,13 @@ class FakeServerRepository implements ServerRepository {
   /// Numbers the server has no login for.
   final unknownPhones = <String>{};
 
+  /// When set, code requests wait for it, to show what the app does meanwhile.
+  Completer<void>? hold;
+
   @override
   Future<SignInCode> requestCode({required String url, required String phone}) async {
     calls.add('requestCode $url $phone');
+    await hold?.future;
     if (failWith != null) throw ServerApiException(failWith!);
     if (unknownPhones.contains(phone)) {
       throw ServerApiException('Sign up first.', statusCode: 404, code: 'not_registered');
