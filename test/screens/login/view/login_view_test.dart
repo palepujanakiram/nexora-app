@@ -8,6 +8,7 @@ import 'package:nexora_app/screens/login/usecase/get_sign_in_notice_usecase.dart
 import 'package:nexora_app/screens/login/usecase/send_code_usecase.dart';
 import 'package:nexora_app/screens/login/usecase/sign_in_usecase.dart';
 import 'package:nexora_app/screens/login/view/login_view.dart';
+import 'package:nexora_app/screens/login/viewmodel/login_viewmodel.dart';
 
 import '../../../fakes.dart';
 
@@ -191,11 +192,12 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('says User not found for a number with no login, without asking for anything else', (tester) async {
+  testWidgets('explains that a number with no account cannot sign in, without asking for anything else', (tester) async {
     await pump(tester);
     server.unknownPhones.add('+919030863940');
     await sendCode(tester, '9030863940');
-    expect(find.text('User not found.'), findsOneWidget);
+    expect(find.text(LoginViewModel.userNotFound), findsOneWidget);
+    expect(LoginViewModel.userNotFound, startsWith('We couldn\'t find an account for this number.'));
     expect(find.textContaining('Invite'), findsNothing);
     expect(find.text('Welcome back'), findsOneWidget);
   });
