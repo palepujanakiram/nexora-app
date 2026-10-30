@@ -12,24 +12,51 @@ import '../datasources/local/secure_storage_datasource.dart';
 import '../datasources/remote/nexora_server_api.dart';
 
 class ServerRepositoryImpl implements ServerRepository {
-  ServerRepositoryImpl._(this._http, this._storage, ServerSession? initial) : _cache = ReactiveCache(initial);
+  ServerRepositoryImpl._(this._http, this._storage, this.clientId, ServerSession? initial)
+    : _cache = ReactiveCache(initial);
 
-  static const _key = 'server_session_v2';
+  static const _key = 'server_session_v3';
 
-  /// Email sessions from before phone sign-in. The server ended them all.
-  static const _oldKey = 'server_session_v1';
+  /// Sessions from the old `/v1` server (email, then phone). The new server
+  /// doesn't know their tokens.
+  static const _oldKeys = ['server_session_v1', 'server_session_v2'];
 
   final http.Client _http;
   final SecureStorageDataSource _storage;
   final ReactiveCache<ServerSession?> _cache;
 
-  static Future<ServerRepositoryImpl> load(http.Client http, SecureStorageDataSource storage) async {
-    await storage.delete(_oldKey);
+  /// This build's client id on the server; see [clientIdFor].
+  final String clientId;
+
+  static Future<ServerRepositoryImpl> load(
+    http.Client http,
+    SecureStorageDataSource storage, {
+    String? clientId,
+  }) async {
+    for (final old in _oldKeys) {
+      await storage.delete(old);
+    }
     final raw = await storage.readJson(_key);
     final session = raw is Map
-        ? ServerSession(url: raw['url'] as String, token: raw['token'] as String, phone: raw['phone'] as String)
+        ? ServerSession(
+            url: raw['url'] as String,
+            token: raw['token'] as String,
+            refreshToken: raw['refreshToken'] as String,
+            phone: raw['phone'] as String,
+          )
         : null;
-    return ServerRepositoryImpl._(http, storage, session);
+    return ServerRepositoryImpl._(http, storage, clientId ?? clientIdFor(kIsWeb, defaultTargetPlatform), session);
+  }
+
+  /// Each platform's build is its own client on the server, with its own
+  /// session length. Override with `--dart-define=NEXORA_CLIENT_ID=cl_…`.
+  static String clientIdFor(bool web, TargetPlatform platform) {
+    const override = String.fromEnvironment('NEXORA_CLIENT_ID');
+    if (override.isNotEmpty) return override;
+    if (web) return 'cl_4o_-efohcNv0XMiM';
+    return platform == TargetPlatform.iOS || platform == TargetPlatform.macOS
+        ? 'cl_Gw8NtirNcIdxf5o3'
+        : 'cl_WMQcVwaZ9RvD-bzp';
   }
 
   /// Names this device in the server's session list.
@@ -46,19 +73,38 @@ class ServerRepositoryImpl implements ServerRepository {
   @override
   Stream<ServerSession?> watch() => _cache.watch();
 
-  /// An API client for the signed-in server. When the server rejects the
-  /// session's token, the session is forgotten, which signs the app out.
-  NexoraServerApi api(ServerSession session) => NexoraServerApi(
+  /// An API client for the signed-in server. It renews the access token when
+  /// it expires; when the session can't be renewed, the session is forgotten,
+  /// which signs the app out.
+  NexoraServerApi api(ServerSession session) =>
+      NexoraServerApi(_http, baseUrl: session.url, auth: _SessionAuth(this, session));
+
+  Future<String?>? _renewing;
+
+  /// One renewal at a time: refresh tokens rotate, and sending a spent one
+  /// again makes the server end the whole session.
+  Future<String?> _renew(ServerSession session, String rejected) {
+    final now = current;
+    if (now == null || now.url != session.url || now.phone != session.phone) return Future.value(null);
+    if (now.token != rejected) return Future.value(now.token);
+    return _renewing ??= _refresh(now).whenComplete(() => _renewing = null);
+  }
+
+  Future<String?> _refresh(ServerSession session) async {
+    final Map<String, dynamic> json;
+    try {
+      json = await NexoraServerApi(
         _http,
         baseUrl: session.url,
-        token: session.token,
-        onUnauthorized: () => unawaited(_expire(session)),
-      );
-
-  Future<void> _expire(ServerSession session) async {
-    if (!identical(current, session)) return;
-    _endedReason = 'Your session ended. Sign in again.';
-    await _forget();
+      ).post('/auth/refresh', {'refreshToken': session.refreshToken, 'clientId': clientId});
+    } on ServerApiException catch (e) {
+      // Unreachable: keep the session and let the request fail.
+      if (e.statusCode == null || e.statusCode! >= 500) rethrow;
+      _endedReason = 'Your session ended. Sign in again.';
+      await _forget();
+      return null;
+    }
+    return (await _save(session.url, json, phone: session.phone)).token;
   }
 
   Future<void> _forget() async {
@@ -72,13 +118,13 @@ class ServerRepositoryImpl implements ServerRepository {
   @override
   Future<SignInCode> requestCode({required String url, required String phone}) async {
     final baseUrl = NexoraServerApi.normalizeUrl(url);
-    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post('/v1/auth/otp/start', {'phone': phone.trim()});
+    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post('/auth/otp/request', {'phone': phone.trim()});
     if (json['sent'] != true) {
       throw ServerApiException('That address answered, but it isn\'t a nexora-backend server.');
     }
     return SignInCode(
       phone: phone.trim(),
-      expiresIn: Duration(seconds: (json['expires_in_seconds'] as num?)?.toInt() ?? 300),
+      expiresIn: Duration(seconds: (json['expiresInSeconds'] as num?)?.toInt() ?? 300),
       resendIn: resendWait,
     );
   }
@@ -86,24 +132,34 @@ class ServerRepositoryImpl implements ServerRepository {
   @override
   Future<ServerSession> verifyCode({required String url, required String phone, required String code}) async {
     final baseUrl = NexoraServerApi.normalizeUrl(url);
-    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post('/v1/auth/otp/verify', {
-      'phone': phone,
-      'code': code.trim(),
-      'device': deviceName,
-    });
-    return _save(baseUrl, json);
-  }
-
-  /// Stores the session from a sign-in reply (`{ token, user }`).
-  Future<ServerSession> _save(String baseUrl, Map<String, dynamic> json) async {
-    final token = json['token'];
+    final json = await NexoraServerApi(
+      _http,
+      baseUrl: baseUrl,
+    ).post('/auth/otp/verify', {'phone': phone, 'code': code.trim(), 'clientId': clientId, 'device': deviceName});
     final user = json['user'];
-    if (token is! String || user is! Map || user['phone'] is! String) {
+    final signedIn = user is Map ? user['phone'] : null;
+    if (signedIn is! String) {
       throw ServerApiException('That address answered, but it isn\'t a nexora-backend server.');
     }
-    final session = ServerSession(url: baseUrl, token: token, phone: user['phone'] as String);
-    await _storage.writeJson(_key, {'url': session.url, 'token': session.token, 'phone': session.phone});
+    final session = await _save(baseUrl, json, phone: signedIn);
     _endedReason = null;
+    return session;
+  }
+
+  /// Stores the session from a token reply (`{ accessToken, refreshToken }`).
+  Future<ServerSession> _save(String baseUrl, Map<String, dynamic> json, {required String phone}) async {
+    final access = json['accessToken'];
+    final refresh = json['refreshToken'];
+    if (access is! String || refresh is! String) {
+      throw ServerApiException('That address answered, but it isn\'t a nexora-backend server.');
+    }
+    final session = ServerSession(url: baseUrl, token: access, refreshToken: refresh, phone: phone);
+    await _storage.writeJson(_key, {
+      'url': session.url,
+      'token': session.token,
+      'refreshToken': session.refreshToken,
+      'phone': session.phone,
+    });
     _cache.value = session;
     return session;
   }
@@ -113,7 +169,7 @@ class ServerRepositoryImpl implements ServerRepository {
     final session = current;
     if (session == null) return;
     try {
-      await NexoraServerApi(_http, baseUrl: session.url, token: session.token).post('/v1/auth/logout');
+      await api(session).post('/auth/logout');
     } on ServerApiException {
       // Already ended or unreachable: forgetting it here is what matters.
     }
@@ -125,7 +181,24 @@ class ServerRepositoryImpl implements ServerRepository {
   Future<String> serverIp() async {
     final session = current;
     if (session == null) throw ServerApiException('Connect to a server first.');
-    final json = await api(session).get('/v1/server/ip');
+    final json = await api(session).get('/server/ip');
     return json['ip'] as String;
   }
+}
+
+/// Signs requests with the session's latest access token.
+class _SessionAuth implements ServerAuth {
+  _SessionAuth(this._repo, this._session);
+
+  final ServerRepositoryImpl _repo;
+  final ServerSession _session;
+
+  @override
+  String get accessToken {
+    final now = _repo.current;
+    return now != null && now.url == _session.url && now.phone == _session.phone ? now.token : _session.token;
+  }
+
+  @override
+  Future<String?> renew(String rejected) => _repo._renew(_session, rejected);
 }

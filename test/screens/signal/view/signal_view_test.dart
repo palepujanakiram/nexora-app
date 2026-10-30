@@ -33,13 +33,12 @@ class _GatedBrokerRepository extends FakeBrokerRepository {
 }
 
 /// A server that refuses the first send as a duplicate and places it when forced.
-class _DuplicateServer implements SignalExecutionRepository {
-  final sends = <(Set<String>, bool)>[];
+class _Server implements SignalExecutionRepository {
+  final sends = <Set<String>>[];
 
   @override
-  Future<List<ExecutionResult>> execute(TradeSignal signal, Set<String> accountIds, AppSettings settings,
-      {bool allowDuplicate = false}) async {
-    sends.add((accountIds, allowDuplicate));
+  Future<List<ExecutionResult>> execute(TradeSignal signal, Set<String> accountIds, AppSettings settings) async {
+    sends.add(accountIds);
     return [
       for (final id in accountIds)
         ExecutionResult(
@@ -49,9 +48,7 @@ class _DuplicateServer implements SignalExecutionRepository {
           paper: false,
           time: DateTime.utc(2026),
           accountId: id,
-          error: allowDuplicate ? null : 'Already placed on this account at 09:30 IST',
-          errorCode: allowDuplicate ? null : 'duplicate',
-          orders: allowDuplicate ? const [PlacedOrder('ENTRY', 'O1')] : const [],
+          orders: const [PlacedOrder('ENTRY · open', 'O1')],
         ),
     ];
   }
@@ -341,22 +338,18 @@ void main() {
     });
   });
 
-  testWidgets('a signal the server already placed can be placed anyway', (tester) async {
-    final server = _DuplicateServer();
+  testWidgets('with a server, the signal places the entry only and shows the server\'s results', (tester) async {
+    final server = _Server();
     await register(initial: [testAccount()], remote: server);
     await pumpView(tester);
     await parse(tester, valid);
+    expect(find.text('None (entry only)'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.send));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Place orders'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Already placed on this account'), findsOneWidget);
-    await tester.tap(find.text('Place anyway on 1 account(s)'));
-    await tester.pumpAndSettle();
-
-    expect(server.sends.map((s) => '${s.$1.join(',')} ${s.$2}'), ['a false', 'a true']);
-    expect(find.textContaining('ENTRY: O1'), findsOneWidget);
-    expect(find.text('Place anyway on 1 account(s)'), findsNothing);
+    expect(server.sends.single, {'a'});
+    expect(find.textContaining('ENTRY · open: O1'), findsOneWidget);
   });
 }

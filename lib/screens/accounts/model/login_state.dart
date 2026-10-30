@@ -8,6 +8,7 @@ class LoginState {
     this.error,
   });
 
+  /// Empty until it has loaded (and for paper accounts on a server).
   final String loginUrl;
 
   /// Query parameter the broker puts in the redirect URL.
@@ -22,8 +23,8 @@ class LoginState {
   final bool busy;
   final String? error;
 
-  LoginState copyWith({bool? busy, String? error, bool clearError = false}) => LoginState(
-        loginUrl: loginUrl,
+  LoginState copyWith({String? loginUrl, bool? busy, String? error, bool clearError = false}) => LoginState(
+        loginUrl: loginUrl ?? this.loginUrl,
         codeName: codeName,
         redirectLogin: redirectLogin,
         acceptsAccessToken: acceptsAccessToken,

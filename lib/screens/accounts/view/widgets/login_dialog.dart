@@ -92,7 +92,7 @@ class _LoginBodyState extends State<_LoginBody> {
                 const Text('Sign in on the broker\'s page. Srisarani Stocks picks up the login by itself.'),
                 const SizedBox(height: 8),
                 FilledButton.icon(
-                  onPressed: state.busy ? null : () => _loginInApp(vm, inApp),
+                  onPressed: state.busy || state.loginUrl.isEmpty ? null : () => _loginInApp(vm, inApp),
                   icon: const Icon(Icons.login),
                   label: const Text('Log in'),
                 ),
@@ -108,12 +108,15 @@ class _LoginBodyState extends State<_LoginBody> {
                 spacing: 8,
                 children: [
                   FilledButton.tonalIcon(
-                    onPressed: () => launchUrl(Uri.parse(state.loginUrl), mode: LaunchMode.externalApplication),
+                    onPressed: state.loginUrl.isEmpty
+                        ? null
+                        : () => launchUrl(Uri.parse(state.loginUrl), mode: LaunchMode.externalApplication),
                     icon: const Icon(Icons.open_in_new),
                     label: Text(redirect ? (inApp != null ? 'Open in browser' : 'Open login page') : 'Open API keys page'),
                   ),
                   TextButton.icon(
-                    onPressed: () => Clipboard.setData(ClipboardData(text: state.loginUrl)),
+                    onPressed:
+                        state.loginUrl.isEmpty ? null : () => Clipboard.setData(ClipboardData(text: state.loginUrl)),
                     icon: const Icon(Icons.copy),
                     label: const Text('Copy link'),
                   ),

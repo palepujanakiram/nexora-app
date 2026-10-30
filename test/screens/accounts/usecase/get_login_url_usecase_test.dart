@@ -4,8 +4,8 @@ import 'package:nexora_app/screens/accounts/usecase/get_login_url_usecase.dart';
 import '../../../fakes.dart';
 
 void main() {
-  test('returns the broker login URL for the account', () {
-    expect(GetLoginUrlUseCase(FakeBrokerRepository())(testAccount(id: 'x')), 'https://login.example/x');
+  test('returns the broker login URL for the account', () async {
+    expect(await GetLoginUrlUseCase(FakeBrokerRepository())(testAccount(id: 'x')), 'https://login.example/x');
   });
 
   test('says whether the user may paste an access token', () {

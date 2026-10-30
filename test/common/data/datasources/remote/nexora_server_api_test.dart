@@ -90,19 +90,41 @@ void main() {
       expect(await api((_) => http.Response('[1,2]', 200)).get('/x'), isEmpty);
     });
 
-    test('reports a rejected token, but not a failed sign-in without one', () async {
-      var rejected = 0;
-      final unauthorized = MockClient((_) async => http.Response('{"error":{"message":"Sign in again."}}', 401));
-      final signedIn = NexoraServerApi(unauthorized, baseUrl: 'https://srv.test', token: 't', onUnauthorized: () => rejected++);
-      await expectLater(signedIn.get('/x'), throwsA(isA<ServerApiException>()));
-      expect(rejected, 1);
+    test('sends an idempotency key and accepts a 207 multi-status reply', () async {
+      final client = api((_) => http.Response('{"legs":[]}', 207));
+      expect(await client.post('/orders', {'a': 1}, 'key-12345'), {'legs': []});
+      expect(requests.single.headers['Idempotency-Key'], 'key-12345');
+      await client.post('/x');
+      expect(requests.last.headers.containsKey('Idempotency-Key'), isFalse);
+    });
 
-      final signingIn = NexoraServerApi(unauthorized, baseUrl: 'https://srv.test', onUnauthorized: () => rejected++);
-      await expectLater(signingIn.post('/v1/auth/login', {}), throwsA(isA<ServerApiException>()));
-      final forbidden = NexoraServerApi(MockClient((_) async => http.Response('{}', 403)),
-          baseUrl: 'https://srv.test', token: 't', onUnauthorized: () => rejected++);
-      await expectLater(forbidden.get('/x'), throwsA(isA<ServerApiException>()));
-      expect(rejected, 1);
+    test('renews a rejected access token once and retries with the new one', () async {
+      final seen = <String?>[];
+      final auth = _Auth('old', renewed: 'new');
+      final client = NexoraServerApi(
+        MockClient((req) async {
+          seen.add(req.headers['Authorization']);
+          final ok = req.headers['Authorization'] == 'Bearer new';
+          return http.Response(ok ? '{"ok":true}' : '{"error":{"message":"expired"}}', ok ? 200 : 401);
+        }),
+        baseUrl: 'https://srv.test',
+        auth: auth,
+      );
+      expect(await client.post('/orders', {'a': 1}, 'key-12345'), {'ok': true});
+      expect(seen, ['Bearer old', 'Bearer new']);
+      expect(auth.renewals, ['old']);
+    });
+
+    test('gives up when the session can\'t be renewed, and never renews without auth', () async {
+      final unauthorized = MockClient((_) async => http.Response('{"error":{"message":"Sign in again."}}', 401));
+      final auth = _Auth('old');
+      final ended = NexoraServerApi(unauthorized, baseUrl: 'https://srv.test', auth: auth);
+      await expectLater(ended.get('/x'),
+          throwsA(isA<ServerApiException>().having((e) => e.message, 'message', 'Sign in again.')));
+      expect(auth.renewals, ['old']);
+
+      final fixed = NexoraServerApi(unauthorized, baseUrl: 'https://srv.test', token: 't');
+      await expectLater(fixed.get('/x'), throwsA(isA<ServerApiException>().having((e) => e.statusCode, 's', 401)));
     });
 
     test('explains an unreachable server', () async {
@@ -126,4 +148,19 @@ void main() {
 
 class SocketLikeException implements Exception {
   const SocketLikeException();
+}
+
+class _Auth implements ServerAuth {
+  _Auth(this.accessToken, {this.renewed});
+
+  @override
+  String accessToken;
+  final String? renewed;
+  final renewals = <String>[];
+
+  @override
+  Future<String?> renew(String rejected) async {
+    renewals.add(rejected);
+    return renewed;
+  }
 }

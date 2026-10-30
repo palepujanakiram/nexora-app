@@ -9,8 +9,9 @@ abstract interface class BrokerRepository {
   /// a server holds the tokens.
   bool get acceptsAccessTokens;
 
-  /// URL the user opens to log in and authorise the app for today.
-  String loginUrl(BrokerAccount account);
+  /// URL the user opens to log in and authorise the app for today. A server
+  /// issues a fresh one (with its own short-lived state) each time.
+  Future<String> loginUrl(BrokerAccount account);
 
   /// Exchanges the request token / auth code (or the full redirect URL that
   /// contains it) for an access token.

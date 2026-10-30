@@ -32,7 +32,7 @@ class BrokerRepositoryImpl implements BrokerRepository {
   bool get acceptsAccessTokens => true;
 
   @override
-  String loginUrl(BrokerAccount account) => _api(account).loginUrl();
+  Future<String> loginUrl(BrokerAccount account) async => _api(account).loginUrl();
 
   @override
   Future<String> exchangeToken(BrokerAccount account, String redirectUrlOrCode) =>

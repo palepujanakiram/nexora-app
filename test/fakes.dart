@@ -21,8 +21,14 @@ class FakeBrokerRepository implements BrokerRepository {
   @override
   bool acceptsAccessTokens = true;
 
+  /// When set, [loginUrl] fails with it.
+  Object? loginUrlError;
+
   @override
-  String loginUrl(BrokerAccount account) => 'https://login.example/${account.id}';
+  Future<String> loginUrl(BrokerAccount account) async {
+    if (loginUrlError != null) throw loginUrlError!;
+    return 'https://login.example/${account.id}';
+  }
 
   @override
   Future<String> exchangeToken(BrokerAccount account, String input) async => 'token-$input';

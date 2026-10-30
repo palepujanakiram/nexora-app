@@ -22,7 +22,7 @@ class SignalViewModel extends ChangeNotifier {
   final ExecuteSignalUseCase _execute;
   late final List<StreamSubscription<Object?>> _subs;
 
-  SignalState _state = const SignalState();
+  late SignalState _state = SignalState(exitsSupported: _execute.placesExits);
   SignalState get state => _state;
 
   void parse(String text) {
@@ -43,15 +43,13 @@ class SignalViewModel extends ChangeNotifier {
   void setSelected(String accountId, bool selected) =>
       _emit(_state.copyWith(selectionOverrides: {..._state.selectionOverrides, accountId: selected}));
 
-  /// Places the signal on the chosen accounts, or only on [accountIds] (e.g.
-  /// the ones the server refused as duplicates, with [allowDuplicate]).
-  Future<List<ExecutionResult>> execute({Set<String>? accountIds, bool allowDuplicate = false}) async {
+  /// Places the signal on the chosen accounts.
+  Future<List<ExecutionResult>> execute() async {
     final signal = _state.signal;
     if (signal == null || !_state.canExecute) return const [];
     _emit(_state.copyWith(busy: true));
     try {
-      return await _execute(signal, accountIds ?? _state.chosen.map((a) => a.id).toSet(),
-          allowDuplicate: allowDuplicate);
+      return await _execute(signal, _state.chosen.map((a) => a.id).toSet());
     } finally {
       _emit(_state.copyWith(busy: false));
     }

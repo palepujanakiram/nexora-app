@@ -79,20 +79,20 @@ void main() {
       activity,
       remote: remote,
     );
-    final results = await execute(signal, {'a'}, allowDuplicate: true);
+    final results = await execute(signal, {'a'});
     expect(brokers.placed, isEmpty, reason: 'nothing is placed from this device');
-    expect(remote.calls.single, ('a', EntryPriceMode.low, true));
+    expect(remote.calls.single, ('a', EntryPriceMode.low));
+    expect(execute.placesExits, isFalse, reason: 'the server places the entry only');
     expect(activity.current, results);
   });
 }
 
 class _RecordingRemote implements SignalExecutionRepository {
-  final calls = <(String, EntryPriceMode, bool)>[];
+  final calls = <(String, EntryPriceMode)>[];
 
   @override
-  Future<List<ExecutionResult>> execute(TradeSignal signal, Set<String> accountIds, AppSettings settings,
-      {bool allowDuplicate = false}) async {
-    calls.add((accountIds.join(','), settings.entryPriceMode, allowDuplicate));
+  Future<List<ExecutionResult>> execute(TradeSignal signal, Set<String> accountIds, AppSettings settings) async {
+    calls.add((accountIds.join(','), settings.entryPriceMode));
     return [
       ExecutionResult(
         accountLabel: 'Server',

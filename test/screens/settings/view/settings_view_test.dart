@@ -160,14 +160,17 @@ void main() {
         findsOneWidget);
   });
 
-  testWidgets('shows the server section first, and hides the proxy while connected', (tester) async {
+  testWidgets('shows the server section first; hides the proxy and GTT exits while connected', (tester) async {
     await pumpView(tester);
     expect(find.byType(ServerSection), findsOneWidget);
     expect(find.text('Web CORS proxy'), findsOneWidget);
+    expect(find.text(ExitMode.withStopAndTarget.label), findsOneWidget);
 
     server = FakeServerRepository(const ServerSession(url: 'https://srv.test', token: 't', phone: '+919876543210'));
     await pumpView(tester);
     expect(find.text('Signed in as +91 98765 43210'), findsOneWidget);
     expect(find.text('Web CORS proxy'), findsNothing);
+    expect(find.text(ExitMode.withStopAndTarget.label), findsNothing);
+    expect(find.textContaining('The server places the entry order only.'), findsOneWidget);
   });
 }

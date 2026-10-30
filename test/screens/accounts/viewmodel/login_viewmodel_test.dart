@@ -43,12 +43,26 @@ void main() {
     accounts = FakeAccountRepository([testAccount(loggedIn: false)]);
   });
 
-  test('initial state uses the broker login URL and the zerodha code name', () {
+  test('loads the broker login URL; uses the zerodha code name', () async {
     final vm = build(accounts.current.single);
+    expect(vm.state.loginUrl, '');
+    await pumpEventQueue();
     expect(vm.state.loginUrl, 'https://login.example/a');
     expect(vm.state.codeName, 'request_token');
     expect(vm.state.busy, isFalse);
     expect(vm.state.error, isNull);
+  });
+
+  test('shows why the login URL could not be loaded, and ignores it once closed', () async {
+    broker.loginUrlError = 'Broker account not found.';
+    final vm = build(accounts.current.single);
+    await pumpEventQueue();
+    expect([vm.state.loginUrl, vm.state.error], ['', 'Broker account not found.']);
+
+    broker.loginUrlError = null;
+    final closed = build(accounts.current.single)..dispose();
+    await pumpEventQueue();
+    expect(closed.state.loginUrl, '');
   });
 
   test('upstox accounts expect a "code" parameter', () {
@@ -66,6 +80,7 @@ void main() {
 
   test('blank input is ignored', () async {
     final vm = build(accounts.current.single);
+    await pumpEventQueue();
     var notified = 0;
     vm.addListener(() => notified++);
     expect(await vm.loginWithRedirect('   '), isFalse);
