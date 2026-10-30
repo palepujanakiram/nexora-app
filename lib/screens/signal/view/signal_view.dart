@@ -67,13 +67,11 @@ class _SignalBodyState extends State<_SignalBody> {
     );
     if (ok != true) return;
     final results = await vm.execute();
-    if (mounted) await _showResults(vm, results);
+    if (mounted) await _showResults(results);
   }
 
-  Future<void> _showResults(SignalViewModel vm, List<ExecutionResult> results) async {
-    // Accounts the server refused because this signal was already placed on them.
-    final duplicates = {for (final r in results) if (r.isDuplicate && r.accountId != null) r.accountId!};
-    final placeAnyway = await showModalBottomSheet<bool>(
+  Future<void> _showResults(List<ExecutionResult> results) async {
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -85,21 +83,10 @@ class _SignalBodyState extends State<_SignalBody> {
             Text('Results', style: Theme.of(ctx).textTheme.titleLarge),
             const SizedBox(height: 8),
             for (final r in results) ExecutionResultCard(result: r),
-            if (duplicates.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.pop(ctx, true),
-                icon: const Icon(Icons.replay),
-                label: Text('Place anyway on ${duplicates.length} account(s)'),
-              ),
-            ],
           ],
         ),
       ),
     );
-    if (placeAnyway != true) return;
-    final again = await vm.execute(accountIds: duplicates, allowDuplicate: true);
-    if (mounted) await _showResults(vm, again);
   }
 
   @override

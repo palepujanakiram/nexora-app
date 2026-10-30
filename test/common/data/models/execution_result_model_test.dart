@@ -109,8 +109,5 @@ void main() {
     });
     expect(back.accountId, 'acc1');
     expect(back.errorCode, 'duplicate');
-    expect(back.isDuplicate, isTrue);
-    expect(ExecutionResultModel.fromJson({...ExecutionResultModel.toJson(back), 'errorCode': 'in_flight'}).isDuplicate,
-        isFalse);
   });
 }

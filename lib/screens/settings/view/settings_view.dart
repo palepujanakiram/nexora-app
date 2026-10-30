@@ -94,6 +94,22 @@ class _SettingsBodyState extends State<_SettingsBody> {
         ),
         const SizedBox(height: 24),
         Text('Exit orders', style: theme.textTheme.titleSmall),
+        if (connected) ...[
+          const SizedBox(height: 8),
+          Text('The server places the entry order only. Set the stop loss and target in the broker\'s app.',
+              style: theme.textTheme.bodySmall),
+        ] else
+          ..._exitSection(vm, state, theme),
+        // A connected server reaches the brokers itself; the proxy isn't used.
+        if (!connected) ..._proxySection(vm, state, theme),
+      ],
+    );
+  }
+
+  /// Stop loss and target orders (GTT), placed only when working without a server.
+  List<Widget> _exitSection(SettingsViewModel vm, SettingsState state, ThemeData theme) {
+    final s = state.settings;
+    return [
         RadioGroup<ExitMode>(
           groupValue: s.exitMode,
           onChanged: (v) => vm.setExitMode(v!),
@@ -117,10 +133,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
           const SizedBox(height: 4),
           Text('Falls back to the last target if the signal has fewer.', style: theme.textTheme.bodySmall),
         ],
-        // A connected server reaches the brokers itself; the proxy isn't used.
-        if (!connected) ..._proxySection(vm, state, theme),
-      ],
-    );
+    ];
   }
 
   List<Widget> _proxySection(SettingsViewModel vm, SettingsState state, ThemeData theme) {

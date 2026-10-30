@@ -9,7 +9,7 @@ import '../usecase/set_access_token_usecase.dart';
 class LoginViewModel extends ChangeNotifier {
   LoginViewModel(this.account, GetLoginUrlUseCase getLoginUrl, this._login, this._setToken)
       : _state = LoginState(
-          loginUrl: getLoginUrl(account),
+          loginUrl: '',
           codeName: switch (account.broker) {
             BrokerType.zerodha => 'request_token',
             BrokerType.upstox => 'code',
@@ -17,7 +17,9 @@ class LoginViewModel extends ChangeNotifier {
           },
           redirectLogin: account.broker != BrokerType.groww,
           acceptsAccessToken: getLoginUrl.acceptsAccessTokens,
-        );
+        ) {
+    _loadUrl(getLoginUrl);
+  }
 
   final BrokerAccount account;
   final LoginWithRedirectUseCase _login;
@@ -25,6 +27,16 @@ class LoginViewModel extends ChangeNotifier {
 
   LoginState _state;
   LoginState get state => _state;
+  bool _disposed = false;
+
+  /// The login page comes from the server, which issues a fresh one each time.
+  Future<void> _loadUrl(GetLoginUrlUseCase getLoginUrl) async {
+    try {
+      _emit(_state.copyWith(loginUrl: await getLoginUrl(account)));
+    } catch (e) {
+      _emit(_state.copyWith(error: e.toString()));
+    }
+  }
 
   /// Returns true once a session is stored.
   /// Without a redirect login (Groww) the input may be empty: the session is
@@ -48,7 +60,14 @@ class LoginViewModel extends ChangeNotifier {
   }
 
   void _emit(LoginState next) {
+    if (_disposed) return;
     _state = next;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

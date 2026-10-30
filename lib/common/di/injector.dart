@@ -98,19 +98,19 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
         ..registerSingleton<BrokerRepository>(BrokerRepositoryImpl(client, settings));
     } else {
       final api = server.api(session);
-      final accounts = ServerAccountRepository(api);
+      final accounts = ServerAccountRepository(api, prefs);
       sl
         ..registerSingleton<AccountRepository>(accounts)
-        ..registerSingleton<ActivityRepository>(ServerActivityRepository(api))
+        ..registerSingleton<ActivityRepository>(ServerActivityRepository(api, accounts, prefs))
         ..registerSingleton<BrokerRepository>(ServerBrokerRepository(api, accounts))
-        ..registerSingleton<SignalExecutionRepository>(ServerSignalExecutionRepository(api));
+        ..registerSingleton<SignalExecutionRepository>(ServerSignalExecutionRepository(api, accounts));
     }
     dataGeneration.value++;
   }
 
   await switchDataSource(server.current);
   sl.registerSingleton<SwitchDataSource>(switchDataSource);
-  // The server ended the session (expired, or the password changed elsewhere).
+  // The server ended the session (it couldn't be renewed, or was signed out elsewhere).
   server.watch().listen((s) {
     if (s == null) unawaited(switchDataSource(null));
   });

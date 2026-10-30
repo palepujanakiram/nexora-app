@@ -30,14 +30,16 @@ class ExecuteSignalUseCase {
   final SignalExecutionRepository? remote;
   final _random = Random();
 
-  /// [allowDuplicate] tells the server to place it even if it already did on
-  /// an account in the last few minutes. This device has no such check.
-  Future<List<ExecutionResult>> call(TradeSignal signal, Set<String> accountIds, {bool allowDuplicate = false}) async {
+  /// Whether stop loss and target orders are placed with the entry. The
+  /// server places the entry only.
+  bool get placesExits => remote == null;
+
+  Future<List<ExecutionResult>> call(TradeSignal signal, Set<String> accountIds) async {
     final settings = _settings.current;
     final remote = this.remote;
     final List<ExecutionResult> results;
     if (remote != null) {
-      results = await remote.execute(signal, accountIds, settings, allowDuplicate: allowDuplicate);
+      results = await remote.execute(signal, accountIds, settings);
     } else {
       final targets = _accounts.current.where((a) => accountIds.contains(a.id));
       results = await Future.wait(targets.map((a) => _executeOne(a, signal, settings)));

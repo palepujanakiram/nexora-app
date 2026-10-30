@@ -26,54 +26,78 @@ class FakeServer {
   NexoraServerApi api() => NexoraServerApi(client, baseUrl: 'https://srv.test', token: 'tok');
 
   /// The JSON body of the last request to [route].
-  Map<String, dynamic> bodyOf(String route) {
-    final req = requests.lastWhere((r) => '${r.method} ${r.url.path}' == route);
-    return jsonDecode(req.body) as Map<String, dynamic>;
-  }
+  Map<String, dynamic> bodyOf(String route) => jsonDecode(last(route).body) as Map<String, dynamic>;
+
+  /// The last request to [route].
+  http.Request last(String route) => requests.lastWhere((r) => '${r.method} ${r.url.path}' == route);
 }
 
+/// An account as `GET /broker-accounts` describes it.
 Map<String, Object?> accountJson({
   String id = 'acc1',
   String broker = 'upstox',
-  bool loggedIn = false,
-  bool paperMode = true,
-  int lots = 1,
-  String? issuedAt,
+  String label = 'Family',
+  String mode = 'paper',
+  String state = 'none',
 }) =>
     {
       'id': id,
       'broker': broker,
-      'brokerLabel': 'Upstox',
-      'label': 'Family',
-      'apiKeyMasked': 'upke••••34',
-      'redirectUri': 'https://127.0.0.1/',
-      'enabled': true,
-      'lots': lots,
-      'product': 'intraday',
-      'paperMode': paperMode,
-      'loggedIn': loggedIn,
-      // Issued now by default, so the session counts as today's whenever the tests run.
-      'tokenIssuedAt': loggedIn ? issuedAt ?? DateTime.now().toUtc().toIso8601String() : null,
-      'login': {'kind': 'redirect', 'url': 'https://login.example/$id', 'codeParam': 'code', 'redirectUri': 'https://127.0.0.1/'},
+      'label': label,
+      'mode': mode,
+      'apiKeyMasked': 'up••••34',
+      'token': {'state': state, 'expiresAt': null, 'lastAuthAt': null, 'message': null},
+      'createdAt': '2026-10-30T04:00:00.000Z',
     };
 
-Map<String, Object?> resultJson({String accountId = 'acc1', String? error, String? errorCode}) => {
-      'id': 'e1',
+/// One leg of a `207` order reply.
+Map<String, Object?> legJson({
+  String accountId = 'acc1',
+  String status = 'OPEN',
+  String mode = 'live',
+  String broker = 'upstox',
+  int quantity = 75,
+  String? brokerOrderId = 'B1',
+  Map<String, Object?>? error,
+}) =>
+    {
+      'legId': 'leg_$accountId',
       'accountId': accountId,
-      'accountLabel': 'Family',
-      'broker': 'Upstox',
-      'signalText': 'BUY NIFTY 30 OCT 24000 PE AT 100',
-      'paper': true,
-      'time': '2026-10-27T04:00:00.000Z',
-      'symbol': 'NIFTY 30 OCT 2026 24000 PE',
-      'quantity': null,
-      'entryPrice': 100,
-      'orders': error == null
-          ? [
-              {'kind': 'ENTRY (paper)', 'id': 'PAPER-1'},
-            ]
-          : [],
-      'error': error,
-      'errorCode': errorCode,
-      'success': error == null,
+      'broker': broker,
+      'mode': mode,
+      'status': status,
+      'brokerOrderId': brokerOrderId,
+      'quantity': quantity,
+      'filledQty': 0,
+      'avgPrice': null,
+      'orderType': 'LIMIT',
+      'price': '100.00',
+      'triggerPrice': null,
+      'error': ?error,
+      'reconcileScheduled': true,
+    };
+
+/// An order as `GET /orders` lists it.
+Map<String, Object?> orderJson({
+  String id = 'po_1',
+  String kind = 'ENTRY',
+  String createdAt = '2026-10-30T04:00:00.000Z',
+  List<Map<String, Object?>>? legs,
+}) =>
+    {
+      'parentOrderId': id,
+      'kind': kind,
+      'exitOf': null,
+      'status': 'IN_PROGRESS',
+      'instrumentId': 'NFO:PE:NIFTY:2026-10-30:2400000',
+      'side': 'BUY',
+      'quantity': 75,
+      'orderType': 'LIMIT',
+      'product': 'INTRADAY',
+      'price': '100.00',
+      'triggerPrice': null,
+      'referencePrice': '100.00',
+      'createdAt': createdAt,
+      'updatedAt': createdAt,
+      'legs': legs ?? [legJson()],
     };

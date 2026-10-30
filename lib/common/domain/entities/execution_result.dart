@@ -37,13 +37,9 @@ class ExecutionResult {
   /// The account it ran on; null for entries saved by older versions.
   final String? accountId;
 
-  /// Set by the server for some errors: `duplicate` (already placed recently)
-  /// or `in_flight` (being placed from another device right now).
+  /// The server's error code, e.g. `INSUFFICIENT_FUNDS` on a rejected leg or
+  /// `market_closed` when a risk check refused the order.
   final String? errorCode;
 
   bool get success => error == null;
-
-  /// Refused because the same signal was already placed on this account
-  /// recently. It can be sent again on purpose ("Place anyway").
-  bool get isDuplicate => errorCode == 'duplicate';
 }

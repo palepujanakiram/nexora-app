@@ -11,6 +11,7 @@ class SignalState {
     this.selectionOverrides = const {},
     this.settings = const AppSettings(),
     this.busy = false,
+    this.exitsSupported = true,
   });
 
   final TradeSignal? signal;
@@ -21,6 +22,9 @@ class SignalState {
   final Map<String, bool> selectionOverrides;
   final AppSettings settings;
   final bool busy;
+
+  /// False on a server, which places the entry order only.
+  final bool exitsSupported;
 
   bool isSelected(BrokerAccount a) => selectionOverrides[a.id] ?? a.enabled;
 
@@ -35,6 +39,7 @@ class SignalState {
   double? get exitTarget => signal == null ? null : TradePricing.targetFor(signal!, settings);
 
   bool get placesExits =>
+      exitsSupported &&
       settings.exitMode == ExitMode.withStopAndTarget && signal?.stopLoss != null && exitTarget != null;
 
   SignalState copyWith({
@@ -53,5 +58,6 @@ class SignalState {
         selectionOverrides: selectionOverrides ?? this.selectionOverrides,
         settings: settings ?? this.settings,
         busy: busy ?? this.busy,
+        exitsSupported: exitsSupported,
       );
 }

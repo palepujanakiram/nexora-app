@@ -19,21 +19,40 @@ class ServerBrokerRepository implements BrokerRepository {
   @override
   bool get acceptsAccessTokens => false;
 
+  /// The server's login challenge for today (`GET …/relink`): the broker's
+  /// login page, or Groww's API keys page. Empty for paper accounts.
   @override
-  String loginUrl(BrokerAccount account) => _accounts.loginUrlFor(account.id);
+  Future<String> loginUrl(BrokerAccount account) async {
+    final json = await _api.get('/broker-accounts/${account.id}/relink');
+    return json['url'] as String? ?? '';
+  }
 
-  /// Creates the session on the server and returns a placeholder token: the
+  /// Finishes the login on the server and returns a placeholder token: the
   /// real one never leaves the server.
   @override
   Future<String> exchangeToken(BrokerAccount account, String redirectUrlOrCode) async {
-    final json = await _api.post('/v1/accounts/${account.id}/session', {'input': redirectUrlOrCode});
+    final json = await _api.post('/broker-accounts/${account.id}/link', {
+      'params': linkParams(account, redirectUrlOrCode),
+    });
     _accounts.putFromServer(json);
     return ServerAccountModel.serverToken;
   }
 
+  /// What `POST …/link` expects: the whole redirect URL, or the bare
+  /// `request_token` (Kite) / `code` (Upstox), or Groww's optional TOTP.
+  static Map<String, String> linkParams(BrokerAccount account, String input) {
+    final value = input.trim();
+    if (Uri.tryParse(value)?.hasScheme ?? false) return {'url': value};
+    return switch (account.broker) {
+      BrokerType.zerodha => {'request_token': value},
+      BrokerType.upstox => {'code': value},
+      BrokerType.groww => value.isEmpty ? {} : {'totp': value},
+    };
+  }
+
   @override
   Future<ResolvedInstrument> resolve(BrokerAccount account, TradeSignal signal) =>
-      throw UnsupportedError('The server resolves contracts when it places a signal.');
+      throw UnsupportedError('The server resolves contracts when it places an order.');
 
   @override
   Future<List<PlacedOrder>> placeTrade(BrokerAccount account, ResolvedInstrument instrument, TradePlan plan) =>

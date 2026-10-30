@@ -24,7 +24,7 @@ into orders on any number of **Zerodha (Kite Connect)**, **Upstox** and **Groww*
 - **Paper mode by default:** new accounts simulate orders. When logged in, paper trades still look up the real contract and lot size.
 - **Live orders with a confirmation:** a LIMIT entry and, for Zerodha and Upstox, a stop loss and target managed by the broker (GTT).
 - **Activity log** of every execution, with order IDs or errors.
-- **Optional server mode:** connect to your own [nexora-backend](https://github.com/palepujanakiram/nexora-backend) so every device shares the same accounts and orders go out from one static IP. A signal already placed from another device is caught before it's placed twice.
+- **Server mode:** the app works through your own [nexora-backend](https://github.com/palepujanakiram/nexora-backend), so every device shares the same accounts and orders go out from one static IP. Every order carries an idempotency key, so a retry is never placed twice.
 - **Secure key storage** (Keychain on iOS, Keystore-encrypted on Android).
 - **Settings:** signed-in mobile number, server IP and sign out, theme colour, entry price within the range, exit orders and target choice.
 
@@ -108,7 +108,7 @@ Brokers accept API orders only from the static IP registered with them. With sev
 The app requires a sign-in with your mobile number: it opens on the login screen and nothing else is available until you're signed in.
 
 1. Deploy nexora-backend (its [Fly.io guide](https://github.com/palepujanakiram/nexora-backend/blob/main/docs/deploy-fly.md) takes about 15 minutes). The Mumbai region gives it a static egress IP.
-2. Set up MSG91 for the SMS codes (see the backend's Fly guide). Open the app, enter your 10-digit mobile number and tap **Send code**, then type the 6-digit code from the SMS (on iPhone it's offered above the keyboard). Your number must already have a login on the server; otherwise the app says "We couldn't find an account for this number. Check the number, or ask the app owner to give you access."
+2. Set up MSG91 for the SMS codes (see the backend's Fly guide). Open the app, enter your 10-digit mobile number and tap **Send code**, then type the 6-digit code from the SMS (on iPhone it's offered above the keyboard). Your number must already have a login on the server (`POST /admin/users`); the server doesn't say whether a number has one, so an unknown number simply gets no SMS.
 3. Tap **Settings → Server → Show server IP** and register that IP with Zerodha, Upstox and Groww.
 4. Add your accounts and log in to the brokers as usual. Each account is stored on the server and shared by all your devices. One broker login per day covers every device.
 
@@ -118,10 +118,14 @@ The login screen uses `https://nexora-backend-jp.fly.dev` unless you change it u
 flutter build web --dart-define=NEXORA_SERVER_URL=https://your-app.fly.dev
 ```
 
+Each platform's build signs in as its own client on the server, which sets how long it stays signed in: iOS `cl_Gw8NtirNcIdxf5o3` (30 days), Android `cl_WMQcVwaZ9RvD-bzp` (30 days) and web `cl_4o_-efohcNv0XMiM` (7 days). The access token lasts 15 minutes and the app renews it with the refresh token by itself. For another server, pass its client id with `--dart-define=NEXORA_CLIENT_ID=cl_…`.
+
 Once signed in:
 
-- **Signal**, **Accounts** and **Activity** run on the server: it places the orders and keeps the activity log for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
-- **Duplicate guard:** if the same signal was already placed on an account in the last 15 minutes (say, from another phone), the server refuses it. The result offers **Place anyway** for a deliberate repeat.
+- **Signal**, **Accounts** and **Activity** run on the server: it places the orders and keeps them for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
+- **Orders:** the server places a LIMIT entry on each ticked account (accounts with the same lots and product go in one order) and reports each account's result: open, filled, rejected with the broker's reason, or *not confirmed yet* while it checks with the broker. It places the entry only: set the stop loss and target in the broker's app. Its risk checks (market hours, daily order cap, order value, kill switch) can refuse an order before it reaches any broker.
+- **Accounts:** the server keeps the broker, name, keys and paper/live mode. Lots, product, **Use by default** and the Upstox redirect URI are kept on each device. To change an account's name or keys, delete it and add it again. Accounts at brokers this app doesn't support yet (Angel One) aren't shown.
+- **Activity** lists the server's orders, one line per account. **Clear** hides the older ones on this device; the server keeps every order.
 - The web build works if the server's `CORS_ORIGINS` lists its address.
 - **Sign out** returns to the login screen. Nothing on the server is deleted. When a session expires (after `SESSION_DAYS`) or the session is ended on the server, the app goes back to the login screen and says so.
 - **Wrong code:** you get 5 tries per code. **Resend code** works after 30 seconds, and **Change number** goes back to fix a typo.

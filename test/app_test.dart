@@ -41,11 +41,11 @@ void main() {
   testWidgets('a saved session opens home; a session the server rejects goes back to login', (tester) async {
     await sl.reset();
     FlutterSecureStorage.setMockInitialValues({
-      'server_session_v2': '{"url":"https://srv.test","token":"old","phone":"+919876543210"}',
+      'server_session_v3': '{"url":"https://srv.test","token":"old","refreshToken":"rt","phone":"+919876543210"}',
     });
     var accepted = true;
     final client = MockClient((_) async => accepted
-        ? http.Response('{"accounts":[],"executions":[]}', 200)
+        ? http.Response('{"accounts":[],"orders":[]}', 200)
         : http.Response('{"error":{"code":"unauthorized","message":"Sign in again."}}', 401));
     await tester.runAsync(() => configureDependencies(httpClient: client));
 
@@ -68,9 +68,10 @@ void main() {
     final client = MockClient((req) async {
       paths.add('${req.method} ${req.url.path}');
       return switch (req.url.path) {
-        '/v1/auth/otp/start' => http.Response('{"sent":true,"expires_in_seconds":300}', 200),
-        '/v1/auth/otp/verify' => http.Response('{"token":"tok","user":{"id":"u1","phone":"+919876543210"}}', 200),
-        _ => http.Response('{"accounts":[],"executions":[]}', 200),
+        '/auth/otp/request' => http.Response('{"sent":true,"expiresInSeconds":300}', 200),
+        '/auth/otp/verify' => http.Response(
+            '{"accessToken":"tok","refreshToken":"rt","user":{"id":"u1","phone":"+919876543210"}}', 200),
+        _ => http.Response('{"accounts":[],"orders":[]}', 200),
       };
     });
     await tester.runAsync(() => configureDependencies(httpClient: client));
@@ -88,7 +89,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(HomeView), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(paths.take(2), ['POST /v1/auth/otp/start', 'POST /v1/auth/otp/verify']);
+    expect(paths.take(2), ['POST /auth/otp/request', 'POST /auth/otp/verify']);
   });
 
   testWidgets('rebuilds the theme when the colour is changed in settings', (tester) async {

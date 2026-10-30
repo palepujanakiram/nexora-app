@@ -130,7 +130,7 @@ void main() {
 
   test('a saved server session puts accounts, logins, orders and activity on the server', () async {
     FlutterSecureStorage.setMockInitialValues({
-      'server_session_v2': '{"url":"https://srv.test","token":"tok","phone":"+919876543210"}',
+      'server_session_v3': '{"url":"https://srv.test","token":"tok","refreshToken":"rt","phone":"+919876543210"}',
       'broker_accounts_v1': '[{"id":"a1","broker":"upstox","label":"Mine","apiKey":"k","apiSecret":"s"}]',
     });
     final client = MockClient((_) async => http.Response('{"accounts":[]}', 200));
@@ -164,7 +164,7 @@ void main() {
 
   test('when the server rejects the token, the app is signed out', () async {
     FlutterSecureStorage.setMockInitialValues({
-      'server_session_v2': '{"url":"https://srv.test","token":"tok","phone":"+919876543210"}',
+      'server_session_v3': '{"url":"https://srv.test","token":"tok","refreshToken":"rt","phone":"+919876543210"}',
     });
     final client = MockClient((_) async => http.Response('{"error":{"code":"unauthorized","message":"x"}}', 401));
     await configureDependencies(httpClient: client);
