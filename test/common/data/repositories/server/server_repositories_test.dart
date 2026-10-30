@@ -202,8 +202,16 @@ void main() {
       });
       expect(accounts.current.single.hasValidToken, isTrue);
 
-      fake.routes['GET /broker-accounts/acc1/relink'] = (_) => {'kind': 'input', 'url': null, 'fields': []};
-      expect(await brokers.loginUrl(account), '');
+      // Paper accounts have no broker login; the server says so.
+      fake.routes['GET /broker-accounts/acc1/relink'] =
+          (_) => {'kind': 'input', 'url': null, 'fields': [], 'message': 'Paper accounts need no broker login.'};
+      await expectLater(
+          brokers.loginUrl(account.copyWith(paperMode: true)),
+          throwsA(isA<ServerApiException>().having((e) => e.message, 'message',
+              'Paper accounts need no broker login. To log in to Upstox, turn off Paper mode in the account\'s settings.')));
+      fake.routes['GET /broker-accounts/acc1/relink'] = (_) => {'kind': 'input', 'url': ''};
+      await expectLater(brokers.loginUrl(account),
+          throwsA(isA<ServerApiException>().having((e) => e.message, 'message', 'This account needs no broker login.')));
 
       expect(() => brokers.resolve(account, signal), throwsUnsupportedError);
       const inst = ResolvedInstrument(symbol: 'X', exchange: 'NFO', lotSize: 75);

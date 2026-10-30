@@ -3,6 +3,7 @@ import '../../../domain/entities/execution_result.dart';
 import '../../../domain/entities/trade_plan.dart';
 import '../../../domain/entities/trade_signal.dart';
 import '../../../domain/repositories/broker_repository.dart';
+import '../../../error/exceptions.dart';
 import '../../datasources/remote/nexora_server_api.dart';
 import '../../models/server_account_model.dart';
 import 'server_account_repository.dart';
@@ -20,11 +21,17 @@ class ServerBrokerRepository implements BrokerRepository {
   bool get acceptsAccessTokens => false;
 
   /// The server's login challenge for today (`GET …/relink`): the broker's
-  /// login page, or Groww's API keys page. Empty for paper accounts.
+  /// login page, or Groww's API keys page. Paper accounts get none: the
+  /// server simulates their orders, so it says why instead.
   @override
   Future<String> loginUrl(BrokerAccount account) async {
     final json = await _api.get('/broker-accounts/${account.id}/relink');
-    return json['url'] as String? ?? '';
+    final url = json['url'] as String?;
+    if (url != null && url.isNotEmpty) return url;
+    final why = json['message'] as String? ?? 'This account needs no broker login.';
+    throw ServerApiException(account.paperMode
+        ? '$why To log in to ${account.broker.label}, turn off Paper mode in the account\'s settings.'
+        : why);
   }
 
   /// Finishes the login on the server and returns a placeholder token: the
