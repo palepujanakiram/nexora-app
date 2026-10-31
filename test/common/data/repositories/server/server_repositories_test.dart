@@ -195,6 +195,7 @@ void main() {
       final account = accounts.current.single;
 
       expect(brokers.acceptsAccessTokens, isFalse);
+      expect(brokers.loginFinishesOnServer, isTrue);
       expect(await brokers.loginUrl(account), 'https://login.example/acc1');
       expect(await brokers.exchangeToken(account, ' https://cb.test/?code=X '), ServerAccountModel.serverToken);
       expect(fake.bodyOf('POST /broker-accounts/acc1/link'), {
@@ -217,6 +218,28 @@ void main() {
       const inst = ResolvedInstrument(symbol: 'X', exchange: 'NFO', lotSize: 75);
       final plan = TradePlan(signal: signal, quantity: 75, entryPrice: 100, product: ProductType.intraday);
       expect(() => brokers.placeTrade(account, inst, plan), throwsUnsupportedError);
+    });
+
+    test('checks the login by reading the account again', () async {
+      var state = 'needs_user_action';
+      final fake = FakeServer({
+        'GET /broker-accounts': (_) => {
+              'accounts': [accountJson(mode: 'live')],
+            },
+        'GET /broker-accounts/acc1': (_) => accountJson(mode: 'live', state: state),
+      });
+      final accounts = ServerAccountRepository(fake.api(), prefs);
+      await accounts.refresh();
+      final brokers = ServerBrokerRepository(fake.api(), accounts);
+      final account = accounts.current.single;
+
+      expect(await brokers.checkLoggedIn(account), isFalse);
+      state = 'valid';
+      expect(await brokers.checkLoggedIn(account), isTrue);
+      expect(accounts.current.single.hasValidToken, isTrue, reason: 'the cache follows');
+
+      fake.routes['GET /broker-accounts/gone'] = (_) => accountJson(id: 'gone', broker: 'angelone');
+      expect(await brokers.checkLoggedIn(testAccount(id: 'gone')), isFalse);
     });
 
     test('sends a bare code under the name each broker uses', () {

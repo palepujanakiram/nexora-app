@@ -10,4 +10,7 @@ class GetLoginUrlUseCase {
 
   /// Whether the dialog may offer "It is an access token".
   bool get acceptsAccessTokens => _brokers.acceptsAccessTokens;
+
+  /// Whether the server finishes the login, so the app only waits for it.
+  bool get loginFinishesOnServer => _brokers.loginFinishesOnServer;
 }

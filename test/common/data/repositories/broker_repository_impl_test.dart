@@ -70,6 +70,12 @@ void main() {
     expect(repo.acceptsAccessTokens, isTrue);
   });
 
+  test('finishes logins itself; an account is logged in when its token is today\'s', () async {
+    expect(repo.loginFinishesOnServer, isFalse);
+    expect(await repo.checkLoggedIn(testAccount()), isTrue);
+    expect(await repo.checkLoggedIn(testAccount(loggedIn: false)), isFalse);
+  });
+
   test('loginUrl routes to the account broker', () async {
     expect(await repo.loginUrl(_zerodha), 'https://kite.zerodha.com/connect/login?v=3&api_key=k');
     expect(Uri.parse(await repo.loginUrl(_upstox)).path, '/v2/login/authorization/dialog');

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
+import 'package:nexora_app/screens/accounts/usecase/check_broker_login_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/get_login_url_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/login_with_redirect_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/set_access_token_usecase.dart';
@@ -42,6 +43,7 @@ void main() {
     sl
       ..reset()
       ..registerFactory(() => GetLoginUrlUseCase(broker))
+        ..registerFactory(() => CheckBrokerLoginUseCase(broker))
       ..registerFactory(() => LoginWithRedirectUseCase(broker, accounts))
       ..registerFactory(() => SetAccessTokenUseCase(accounts));
 
@@ -261,6 +263,7 @@ void main() {
       await sl.reset();
       sl
         ..registerFactory(() => GetLoginUrlUseCase(broker))
+        ..registerFactory(() => CheckBrokerLoginUseCase(broker))
         ..registerFactory(() => LoginWithRedirectUseCase(broker, accounts))
         ..registerFactory(() => SetAccessTokenUseCase(accounts));
       await openDialog(tester, upstox, true);
@@ -298,6 +301,51 @@ void main() {
       await openDialog(tester, groww, true);
       expect(logInButton(), findsNothing);
       expect(find.text('Open API keys page'), findsOneWidget);
+    });
+  });
+
+  group('with a server finishing the login', () {
+    late FakeWebViewPlatform platform;
+
+    setUp(() {
+      WebViewPlatform.instance = platform = FakeWebViewPlatform();
+      broker
+        ..loginFinishesOnServer = true
+        ..acceptsAccessTokens = false;
+    });
+
+    testWidgets('Log in opens Safari\'s in-app view, waits, and closes once the server has the login', (tester) async {
+      broker.loginChecks = [false, true];
+      await openDialog(tester, null, true);
+      expect(find.textContaining('When it says "Account linked", close it'), findsOneWidget);
+      expect(find.text('Open login page'), findsOneWidget, reason: 'the browser fallback stays');
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Log in'));
+      await tester.pump();
+      final args = launches.single.arguments as Map;
+      expect(args['url'], 'https://login.example/a');
+      expect(args['useSafariVC'], isTrue);
+      expect(find.text('Waiting for the broker login to finish…'), findsOneWidget);
+      expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Log in')).onPressed, isNull);
+      expect(platform.controller, isNull, reason: 'the app\'s own web view isn\'t used');
+
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(broker.checked, ['a', 'a']);
+    });
+
+    testWidgets('closing the dialog while waiting stops asking', (tester) async {
+      await openDialog(tester, null, true);
+      await tester.tap(find.widgetWithText(FilledButton, 'Log in'));
+      await tester.pump();
+      await tester.tapAt(const Offset(5, 5)); // outside the dialog
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
+      expect(broker.checked, isEmpty);
     });
   });
 }

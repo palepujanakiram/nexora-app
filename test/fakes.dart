@@ -21,6 +21,21 @@ class FakeBrokerRepository implements BrokerRepository {
   @override
   bool acceptsAccessTokens = true;
 
+  @override
+  bool loginFinishesOnServer = false;
+
+  /// What [checkLoggedIn] answers, one per call (the last repeats); errors are thrown.
+  List<Object> loginChecks = [false];
+  final checked = <String>[];
+
+  @override
+  Future<bool> checkLoggedIn(BrokerAccount account) async {
+    checked.add(account.id);
+    final answer = loginChecks.length > 1 ? loginChecks.removeAt(0) : loginChecks.single;
+    if (answer is bool) return answer;
+    throw answer;
+  }
+
   /// When set, [loginUrl] fails with it.
   Object? loginUrlError;
 
