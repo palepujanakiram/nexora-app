@@ -20,6 +20,8 @@ import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart'
 import 'package:nexora_app/screens/login/usecase/get_sign_in_notice_usecase.dart';
 import 'package:nexora_app/screens/login/usecase/send_code_usecase.dart';
 import 'package:nexora_app/screens/login/usecase/sign_in_usecase.dart';
+import 'package:nexora_app/screens/signup/usecase/send_sign_up_code_usecase.dart';
+import 'package:nexora_app/screens/signup/usecase/sign_up_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/sign_out_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_server_ip_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
@@ -100,6 +102,8 @@ void main() {
       () => sl<GetSignInNoticeUseCase>(),
       () => sl<SignOutUseCase>(),
       () => sl<SendCodeUseCase>(),
+      () => sl<SendSignUpCodeUseCase>(),
+      () => sl<SignUpUseCase>(),
       () => sl<GetServerIpUseCase>(),
     ];
     for (final resolve in resolvers) {

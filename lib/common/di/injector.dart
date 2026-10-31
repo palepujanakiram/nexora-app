@@ -18,6 +18,8 @@ import '../../screens/activity/usecase/watch_activity_usecase.dart';
 import '../../screens/login/usecase/get_sign_in_notice_usecase.dart';
 import '../../screens/login/usecase/send_code_usecase.dart';
 import '../../screens/login/usecase/sign_in_usecase.dart';
+import '../../screens/signup/usecase/send_sign_up_code_usecase.dart';
+import '../../screens/signup/usecase/sign_up_usecase.dart';
 import '../../screens/settings/usecase/get_proxy_worker_script_usecase.dart';
 import '../../screens/settings/usecase/get_server_ip_usecase.dart';
 import '../../screens/settings/usecase/sign_out_usecase.dart';
@@ -128,6 +130,11 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
     ..registerFactory(() => SendCodeUseCase(sl()))
     ..registerFactory(() => SignInUseCase(sl(), sl()))
     ..registerFactory(() => GetSignInNoticeUseCase(sl()));
+
+  // Sign-up screen
+  sl
+    ..registerFactory(() => SendSignUpCodeUseCase(sl()))
+    ..registerFactory(() => SignUpUseCase(sl(), sl()));
 
   // Signal screen
   sl

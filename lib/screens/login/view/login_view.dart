@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../common/di/injector.dart';
 import '../../../common/domain/entities/server_session.dart';
+import '../../../common/presentation/auth/auth_widgets.dart';
+import '../../../common/presentation/auth/login_style.dart';
+import '../../signup/view/sign_up_view.dart';
 import '../model/login_state.dart';
 import '../usecase/send_code_usecase.dart';
 import '../viewmodel/login_viewmodel.dart';
-import 'widgets/code_boxes.dart';
-import 'widgets/login_style.dart';
 
 /// The first screen: everything else needs a signed-in nexora-backend server.
 /// Sign-in is a mobile number, then the one-time code texted to it.
@@ -69,8 +69,14 @@ class _LoginBodyState extends State<_LoginBody> {
   // On success the app swaps this screen for home; nothing to do here.
   Future<void> _verify(LoginViewModel vm) => vm.verify(_code.text);
 
-  /// `28` → `0:28`.
-  static String _clock(int seconds) => '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+  /// Opens sign-up on the same server. It comes back with the number when
+  /// that number already has an account, ready to sign in.
+  Future<void> _createAccount() async {
+    final mobile = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => SignUpView(url: _url.text)),
+    );
+    if (mobile != null && mobile.isNotEmpty) _mobile.text = mobile;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +99,7 @@ class _LoginBodyState extends State<_LoginBody> {
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: state.enteringCode ? _codeStep(vm, state, style) : _phoneStep(vm, state, style),
+                  children: state.enteringCode ? [_codeStep(vm, state, style)] : _phoneStep(vm, state, style),
                 ),
               ),
             ),
@@ -126,123 +132,41 @@ class _LoginBodyState extends State<_LoginBody> {
             children: [
               Text('Mobile number', style: style.label),
               const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              MobileNumberField(
+                controller: _mobile,
+                style: style,
+                onSubmitted: (_) => _sendCode(vm),
+                validator: _validateMobile,
+              ),
+              ...authError(state.error, style),
+              const SizedBox(height: 24),
+              AuthButton('Send code', style: style, busy: state.busy, onPressed: () => _sendCode(vm)),
+              const SizedBox(height: 24),
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Container(
-                    height: 62,
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    alignment: Alignment.center,
-                    decoration: style.box(),
-                    child: Text('+91', style: style.input),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      key: const Key('mobile'),
-                      controller: _mobile,
-                      style: style.input,
-                      cursorColor: style.focusedBorder,
-                      keyboardType: TextInputType.phone,
-                      autofillHints: const [AutofillHints.telephoneNumberNational],
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _sendCode(vm),
-                      decoration: style.fieldDecoration(hint: '10-digit number'),
-                      validator: _validateMobile,
-                    ),
-                  ),
+                  Text('New to Srisarani Stocks? ', style: style.body),
+                  AuthLink('Create an account', style: style, onTap: state.busy ? null : _createAccount),
                 ],
               ),
-              ..._error(state, style),
-              const SizedBox(height: 24),
-              _primaryButton(state, style, label: 'Send code', onPressed: () => _sendCode(vm)),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               _serverTile(style),
             ],
           ),
         ),
       ];
 
-  List<Widget> _codeStep(LoginViewModel vm, LoginState state, LoginStyle style) => [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: _link(style, '← Back', state.busy ? null : vm.changeNumber),
-        ),
-        const SizedBox(height: 28),
-        Text('Enter the code', style: style.title),
-        const SizedBox(height: 16),
-        Text.rich(
-          TextSpan(
-            style: style.body,
-            children: [
-              TextSpan(text: 'We sent a 6-digit code to ${state.sentTo}. '),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.baseline,
-                baseline: TextBaseline.alphabetic,
-                child: _link(style, 'Change number', state.busy ? null : vm.changeNumber),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 32),
-        CodeBoxes(
-          fieldKey: const Key('code'),
-          controller: _code,
-          style: style,
-          // A full code is checked straight away, e.g. when iOS fills it in from the SMS.
-          onChanged: (v) {
-            if (v.length == 6) _verify(vm);
-          },
-          onSubmitted: (_) => _verify(vm),
-        ),
-        ..._error(state, style),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                state.resendIn > 0 ? 'Resend code in ${_clock(state.resendIn)}' : 'Didn\'t get it?',
-                style: style.label,
-              ),
-            ),
-            _link(style, 'Resend', state.busy || state.resendIn > 0 ? null : () => _resend(vm)),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _primaryButton(state, style, label: 'Verify and continue', onPressed: () => _verify(vm)),
-      ];
-
-  /// Bold teal text that acts as a button; greyed out when [onTap] is null.
-  Widget _link(LoginStyle style, String text, VoidCallback? onTap) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Text(
-            text,
-            style: style.linkText.copyWith(color: onTap == null ? style.muted.withValues(alpha: 0.6) : null),
-          ),
-        ),
-      );
-
-  List<Widget> _error(LoginState state, LoginStyle style) => [
-        if (state.error != null) ...[
-          const SizedBox(height: 14),
-          Text(state.error!, style: style.errorText),
-        ],
-      ];
-
-  Widget _primaryButton(LoginState state, LoginStyle style, {required String label, required VoidCallback onPressed}) =>
-      FilledButton(
-        onPressed: state.busy ? null : onPressed,
-        style: style.primaryButton,
-        child: state.busy
-            ? SizedBox.square(
-                dimension: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: style.onButton),
-              )
-            : Text(label),
+  Widget _codeStep(LoginViewModel vm, LoginState state, LoginStyle style) => CodeStep(
+        style: style,
+        controller: _code,
+        sentTo: state.sentTo!,
+        busy: state.busy,
+        resendIn: state.resendIn,
+        error: state.error,
+        onBack: vm.changeNumber,
+        onResend: () => _resend(vm),
+        onVerify: () => _verify(vm),
       );
 
   /// Where the app signs in. Collapsed: most people never change it.

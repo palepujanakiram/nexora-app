@@ -5,6 +5,7 @@ import 'package:nexora_app/common/domain/entities/broker_account.dart';
 import 'package:nexora_app/common/domain/entities/execution_result.dart';
 import 'package:nexora_app/common/domain/entities/server_session.dart';
 import 'package:nexora_app/common/domain/entities/sign_in_code.dart';
+import 'package:nexora_app/common/domain/entities/sign_up_details.dart';
 import 'package:nexora_app/common/domain/entities/trade_plan.dart';
 import 'package:nexora_app/common/domain/entities/trade_signal.dart';
 import 'package:nexora_app/common/domain/repositories/account_repository.dart';
@@ -149,6 +150,40 @@ class FakeServerRepository implements ServerRepository {
     calls.add('verifyCode $url $phone $code');
     if (failWith != null) throw ServerApiException(failWith!);
     if (code != this.code) throw ServerApiException('Wrong code. 4 tries left.');
+    return _cache.value = ServerSession(url: url, token: 'tok', phone: phone);
+  }
+
+  /// Numbers that already have an account: sign-up refuses them after the code.
+  final registeredPhones = <String>{};
+
+  /// Emails that belong to another account.
+  final registeredEmails = <String>{};
+
+  @override
+  Future<SignInCode> requestSignUpCode({required String url, required String phone, required SignUpDetails details}) async {
+    calls.add('requestSignUpCode $url $phone ${details.fullName} ${details.email}');
+    await hold?.future;
+    if (failWith != null) throw ServerApiException(failWith!);
+    return SignInCode(phone: phone, expiresIn: const Duration(minutes: 5), resendIn: resendIn);
+  }
+
+  @override
+  Future<ServerSession> verifySignUp({
+    required String url,
+    required String phone,
+    required SignUpDetails details,
+    required String code,
+  }) async {
+    calls.add('verifySignUp $url $phone ${details.fullName} ${details.email} $code');
+    if (failWith != null) throw ServerApiException(failWith!);
+    if (code != this.code) throw ServerApiException('Wrong code. 4 tries left.');
+    if (registeredPhones.contains(phone)) {
+      throw ServerApiException('This mobile number already has an account. Sign in instead.',
+          statusCode: 409, code: 'already_registered');
+    }
+    if (registeredEmails.contains(details.email)) {
+      throw ServerApiException('An account with this email already exists.', statusCode: 409, code: 'conflict');
+    }
     return _cache.value = ServerSession(url: url, token: 'tok', phone: phone);
   }
 

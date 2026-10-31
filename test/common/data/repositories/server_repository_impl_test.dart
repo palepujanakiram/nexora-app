@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:nexora_app/common/data/datasources/local/secure_storage_datasource.dart';
 import 'package:nexora_app/common/data/repositories/server_repository_impl.dart';
+import 'package:nexora_app/common/domain/entities/sign_up_details.dart';
 import 'package:nexora_app/common/error/exceptions.dart';
 
 import 'server/fake_server.dart';
@@ -85,6 +86,71 @@ void main() {
     expect([reloaded.current?.token, reloaded.current?.refreshToken, reloaded.current?.phone], ['A1', 'R1', phone]);
     await pumpEventQueue();
     expect(emitted, [null, phone]);
+  });
+
+  test('signs up: texts a sign-up code for the form, then creates the account and signs in', () async {
+    final fake = server();
+    fake.routes['POST /auth/signup/request'] = (_) => {'sent': true, 'expiresInSeconds': 300};
+    fake.routes['POST /auth/signup/verify'] = (_) => http.Response(
+        jsonEncode({
+          ...tokens(7),
+          'user': {'id': 'usr_2', 'phone': phone, 'email': 'ravi@example.com', 'fullName': 'Ravi Kumar'},
+        }),
+        201);
+    final repo = await ServerRepositoryImpl.load(fake.client, storage, clientId: 'cl_test');
+    const details = SignUpDetails(
+      fullName: ' Ravi Kumar ',
+      email: ' ravi@example.com ',
+      acceptsTerms: true,
+      acceptsRisk: true,
+      acceptsDataUse: true,
+    );
+    final form = {
+      'phone': phone,
+      'fullName': 'Ravi Kumar',
+      'email': 'ravi@example.com',
+      'consents': {'terms': true, 'risk': true, 'dataUse': true},
+    };
+
+    final sent = await repo.requestSignUpCode(url: 'https://srv.test/', phone: ' $phone ', details: details);
+    expect([sent.phone, sent.expiresIn, sent.resendIn], [phone, const Duration(minutes: 5), ServerRepositoryImpl.resendWait]);
+    expect(fake.bodyOf('POST /auth/signup/request'), form);
+
+    final session = await repo.verifySignUp(url: 'https://srv.test', phone: phone, details: details, code: ' 654321 ');
+    expect([session.url, session.token, session.refreshToken, session.phone], ['https://srv.test', 'A7', 'R7', phone]);
+    expect(fake.bodyOf('POST /auth/signup/verify'), {
+      ...form,
+      'code': '654321',
+      'clientId': 'cl_test',
+      'device': ServerRepositoryImpl.deviceName,
+    });
+    expect(repo.current?.token, 'A7');
+    expect((await ServerRepositoryImpl.load(fake.client, storage)).current?.phone, phone, reason: 'remembered');
+  });
+
+  test('a number that already has an account is refused with its code, and nothing is signed in', () async {
+    final fake = server();
+    fake.routes['POST /auth/signup/verify'] = (_) => http.Response(
+        '{"error":{"code":"already_registered","message":"This mobile number already has an account. Sign in instead."}}',
+        409);
+    final repo = await ServerRepositoryImpl.load(fake.client, storage);
+    await expectLater(
+      repo.verifySignUp(
+          url: 'https://srv.test', phone: phone, details: const SignUpDetails(fullName: 'A', email: 'a@b.co'), code: '1'),
+      throwsA(isA<ServerApiException>()
+          .having((e) => e.code, 'code', 'already_registered')
+          .having((e) => e.statusCode, 'statusCode', 409)),
+    );
+    expect(repo.current, isNull);
+  });
+
+  test('a sign-up code request that is not from a nexora-backend server is an error', () async {
+    final repo = await ServerRepositoryImpl.load(
+        FakeServer({'POST /auth/signup/request': (_) => {'hello': 1}}).client, storage);
+    await expectLater(
+      repo.requestSignUpCode(url: 'https://srv.test', phone: phone, details: const SignUpDetails(fullName: 'A', email: 'e')),
+      throwsA(isA<ServerApiException>()),
+    );
   });
 
   test('assumes 5 minutes when the server leaves out the expiry', () async {

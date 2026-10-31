@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../domain/entities/server_session.dart';
 import '../../domain/entities/sign_in_code.dart';
+import '../../domain/entities/sign_up_details.dart';
 import '../../domain/repositories/server_repository.dart';
 import '../../error/exceptions.dart';
 import '../../utils/reactive_cache.dart';
@@ -116,26 +117,54 @@ class ServerRepositoryImpl implements ServerRepository {
   static const resendWait = Duration(seconds: 30);
 
   @override
-  Future<SignInCode> requestCode({required String url, required String phone}) async {
+  Future<SignInCode> requestCode({required String url, required String phone}) =>
+      _requestCode(url, '/auth/otp/request', {'phone': phone.trim()});
+
+  @override
+  Future<SignInCode> requestSignUpCode({required String url, required String phone, required SignUpDetails details}) =>
+      _requestCode(url, '/auth/signup/request', _signUpForm(phone, details));
+
+  /// The body both sign-up endpoints take, besides the code.
+  static Map<String, Object?> _signUpForm(String phone, SignUpDetails details) => {
+        'phone': phone.trim(),
+        'fullName': details.fullName.trim(),
+        'email': details.email.trim(),
+        'consents': {'terms': details.acceptsTerms, 'risk': details.acceptsRisk, 'dataUse': details.acceptsDataUse},
+      };
+
+  Future<SignInCode> _requestCode(String url, String path, Map<String, Object?> body) async {
     final baseUrl = NexoraServerApi.normalizeUrl(url);
-    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post('/auth/otp/request', {'phone': phone.trim()});
+    final json = await NexoraServerApi(_http, baseUrl: baseUrl).post(path, body);
     if (json['sent'] != true) {
       throw ServerApiException('That address answered, but it isn\'t a nexora-backend server.');
     }
     return SignInCode(
-      phone: phone.trim(),
+      phone: body['phone'] as String,
       expiresIn: Duration(seconds: (json['expiresInSeconds'] as num?)?.toInt() ?? 300),
       resendIn: resendWait,
     );
   }
 
   @override
-  Future<ServerSession> verifyCode({required String url, required String phone, required String code}) async {
+  Future<ServerSession> verifyCode({required String url, required String phone, required String code}) =>
+      _verify(url, '/auth/otp/verify', {'phone': phone, 'code': code.trim()});
+
+  @override
+  Future<ServerSession> verifySignUp({
+    required String url,
+    required String phone,
+    required SignUpDetails details,
+    required String code,
+  }) =>
+      _verify(url, '/auth/signup/verify', {..._signUpForm(phone, details), 'code': code.trim()});
+
+  /// Sends a texted code with [body] and keeps the session the server answers with.
+  Future<ServerSession> _verify(String url, String path, Map<String, Object?> body) async {
     final baseUrl = NexoraServerApi.normalizeUrl(url);
     final json = await NexoraServerApi(
       _http,
       baseUrl: baseUrl,
-    ).post('/auth/otp/verify', {'phone': phone, 'code': code.trim(), 'clientId': clientId, 'device': deviceName});
+    ).post(path, {...body, 'clientId': clientId, 'device': deviceName});
     final user = json['user'];
     final signedIn = user is Map ? user['phone'] : null;
     if (signedIn is! String) {
