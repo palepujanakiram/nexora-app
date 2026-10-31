@@ -29,5 +29,16 @@ void main() {
   test('has one statement per server consent', () {
     expect(SignUpConsent.values.map((c) => c.name), ['terms', 'risk', 'dataUse']);
     expect(SignUpConsent.values.every((c) => c.statement.endsWith('.')), isTrue);
+    expect(SignUpConsent.terms.statement, 'I have read and accept the Terms of Use and the Privacy Notice.');
+    expect(SignUpConsent.risk.statement, contains('SEBI studies show most individual traders lose money.'));
+    expect(SignUpConsent.risk.statement, endsWith('the decisions and any losses are mine.'));
+    expect(SignUpConsent.dataUse.statement, contains('keep my broker connections'));
+  });
+
+  test('names the support team when the build sets no support email', () {
+    expect(supportEmail, isEmpty);
+    expect(supportContact, 'our support team');
+    expect(SignUpConsent.dataUse.statement,
+        endsWith('I can withdraw this consent at any time by writing to our support team.'));
   });
 }
