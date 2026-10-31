@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// The login screens' own look: a mint page, white fields and a teal button,
+/// The sign-in and sign-up screens' own look: a mint page, white fields and a teal button,
 /// with darker equivalents in dark mode. Text uses the system font: San
 /// Francisco on iOS, Roboto on Android.
 class LoginStyle {

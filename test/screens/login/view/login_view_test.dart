@@ -9,6 +9,9 @@ import 'package:nexora_app/screens/login/usecase/send_code_usecase.dart';
 import 'package:nexora_app/screens/login/usecase/sign_in_usecase.dart';
 import 'package:nexora_app/screens/login/view/login_view.dart';
 import 'package:nexora_app/screens/login/viewmodel/login_viewmodel.dart';
+import 'package:nexora_app/screens/signup/usecase/send_sign_up_code_usecase.dart';
+import 'package:nexora_app/screens/signup/usecase/sign_up_usecase.dart';
+import 'package:nexora_app/screens/signup/view/sign_up_view.dart';
 
 import '../../../fakes.dart';
 
@@ -223,6 +226,20 @@ void main() {
     await tester.enterText(address, 'http://localhost:8080');
     await sendCode(tester);
     expect(server.calls, ['requestCode http://localhost:8080 +919876543210']);
+  });
+
+  testWidgets('opens sign-up on the server set here', (tester) async {
+    sl
+      ..registerFactory(() => SendSignUpCodeUseCase(server))
+      ..registerFactory(() => SignUpUseCase(server, (s) async => switches.add(s?.phone)));
+    await pump(tester);
+    expect(find.text('New to Srisarani Stocks? '), findsOneWidget);
+    await tester.tap(find.text('Server'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Server address'), 'http://localhost:8080');
+    await tester.tap(find.text('Create an account'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SignUpView>(find.byType(SignUpView)).url, 'http://localhost:8080');
   });
 
   testWidgets('explains why the session ended', (tester) async {
