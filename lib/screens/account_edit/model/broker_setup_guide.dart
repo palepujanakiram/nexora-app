@@ -1,4 +1,5 @@
 import '../../../common/domain/entities/broker_account.dart';
+import '../../../common/domain/entities/server_session.dart';
 
 class GuideLink {
   const GuideLink(this.label, this.url);
@@ -45,8 +46,8 @@ class BrokerSetupGuide {
     needsRedirectUri: false,
     steps: [
       'Sign in to the Kite Connect developer console with your Zerodha account.',
-      'Create a new app. Enter your Zerodha client ID and any redirect URL you can open, '
-          'e.g. https://127.0.0.1/ — after logging in you will paste the page address back into Srisarani Stocks.',
+      'Create a new app. Enter your Zerodha client ID, and set the redirect URL to your server\'s address followed by '
+          '/broker-callback/zerodha, e.g. ${ServerSession.defaultUrl}/broker-callback/zerodha.',
       'Open the app and copy its API key and API secret into the fields above.',
       'Check Kite Connect pricing and any static IP requirement for order placement on the developer site.',
     ],
@@ -66,9 +67,10 @@ class BrokerSetupGuide {
     redirectUriHelp: 'Must exactly match the redirect URL saved in your Upstox app',
     steps: [
       'Sign in to Upstox and open My Account → Apps (developer apps page).',
-      'Create a new app. Set a redirect URL you can open, e.g. https://127.0.0.1/ — '
-          'after logging in you will paste the page address back into Srisarani Stocks.',
-      'Copy the API key and API secret into the fields above, and enter the same redirect URL exactly.',
+      'Create a new app. Set its redirect URL to the address in the Redirect URI field above: your server\'s '
+          'address followed by /broker-callback/upstox, e.g. ${ServerSession.defaultUrl}/broker-callback/upstox.',
+      'Copy the API key and API secret into the fields above. The redirect URL must match exactly, or Upstox '
+          'refuses the login ("Check your client_id and redirect_uri").',
       'Check whether Upstox requires a static IP for placing orders through the API.',
     ],
     links: [

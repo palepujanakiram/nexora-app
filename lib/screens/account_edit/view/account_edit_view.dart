@@ -15,7 +15,7 @@ class AccountEditView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
-        create: (_) => AccountEditViewModel(account, sl(), sl()),
+        create: (_) => AccountEditViewModel(account, sl(), sl(), sl()),
         child: const _AccountEditBody(),
       );
 }
@@ -113,8 +113,11 @@ class _AccountEditBodyState extends State<_AccountEditBody> {
                     initialValue: form.redirectUri,
                     decoration: InputDecoration(
                       labelText: 'Redirect URI',
-                      hintText: 'https://127.0.0.1/',
-                      helperText: guide.redirectUriHelp,
+                      hintText: vm.callbackUrl ?? 'https://127.0.0.1/',
+                      helperText: vm.callbackUrl == null
+                          ? guide.redirectUriHelp
+                          : 'Set this same address as the redirect URL in your ${guide.title} app',
+                      helperMaxLines: 2,
                     ),
                     validator: AccountForm.required,
                     onChanged: (v) => vm.update((f) => f.copyWith(redirectUri: v)),

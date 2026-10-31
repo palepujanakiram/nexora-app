@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
+import 'package:nexora_app/common/domain/entities/server_session.dart';
 import 'package:nexora_app/screens/account_edit/usecase/delete_account_usecase.dart';
+import 'package:nexora_app/screens/account_edit/usecase/get_broker_callback_url_usecase.dart';
 import 'package:nexora_app/screens/account_edit/usecase/save_account_usecase.dart';
 import 'package:nexora_app/screens/account_edit/view/account_edit_view.dart';
 
@@ -16,7 +18,8 @@ void main() {
     sl
       ..reset()
       ..registerFactory(() => SaveAccountUseCase(accounts))
-      ..registerFactory(() => DeleteAccountUseCase(accounts));
+      ..registerFactory(() => DeleteAccountUseCase(accounts))
+      ..registerFactory(() => GetBrokerCallbackUrlUseCase(FakeServerRepository()));
   });
 
   Future<void> pumpView(WidgetTester tester) async {
@@ -77,5 +80,28 @@ void main() {
     final saved = accounts.current.single;
     expect(saved.broker, BrokerType.upstox);
     expect(saved.redirectUri, 'https://127.0.0.1/');
+  });
+
+  testWidgets('signed in to a server, Upstox\'s redirect URI starts as the server\'s callback', (tester) async {
+    sl
+      ..unregister<GetBrokerCallbackUrlUseCase>()
+      ..registerFactory(() => GetBrokerCallbackUrlUseCase(
+          FakeServerRepository(const ServerSession(url: 'https://srv.test', token: 't', phone: '+919876543210'))));
+    await pumpView(tester);
+    await tester.tap(find.text('Upstox'));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<EditableText>(
+        find.descendant(of: find.widgetWithText(TextFormField, 'Redirect URI'), matching: find.byType(EditableText)));
+    expect(field.controller.text, 'https://srv.test/broker-callback/upstox');
+    expect(find.text('Set this same address as the redirect URL in your Upstox app'), findsOneWidget);
+    expect(find.textContaining('/broker-callback/upstox, e.g. '), findsOneWidget, reason: 'the setup guide says so too');
+
+    await tester.enterText(find.widgetWithText(TextFormField, 'Name'), 'Mine');
+    await tester.enterText(find.widgetWithText(TextFormField, 'API key (client_id)'), 'key');
+    await tester.enterText(find.widgetWithText(TextFormField, 'API secret'), 'secret');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(accounts.current.single.redirectUri, 'https://srv.test/broker-callback/upstox');
   });
 }

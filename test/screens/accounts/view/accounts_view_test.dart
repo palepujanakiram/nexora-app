@@ -4,6 +4,7 @@ import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
 import 'package:nexora_app/common/domain/usecases/watch_accounts_usecase.dart';
 import 'package:nexora_app/screens/account_edit/usecase/delete_account_usecase.dart';
+import 'package:nexora_app/screens/account_edit/usecase/get_broker_callback_url_usecase.dart';
 import 'package:nexora_app/screens/account_edit/usecase/save_account_usecase.dart';
 import 'package:nexora_app/screens/account_edit/view/account_edit_view.dart';
 import 'package:nexora_app/screens/accounts/usecase/get_login_url_usecase.dart';
@@ -30,7 +31,8 @@ void main() {
       ..registerFactory(() => LoginWithRedirectUseCase(broker, accounts))
       ..registerFactory(() => SetAccessTokenUseCase(accounts))
       ..registerFactory(() => SaveAccountUseCase(accounts))
-      ..registerFactory(() => DeleteAccountUseCase(accounts));
+      ..registerFactory(() => DeleteAccountUseCase(accounts))
+      ..registerFactory(() => GetBrokerCallbackUrlUseCase(FakeServerRepository()));
   }
 
   setUp(() => register(const []));

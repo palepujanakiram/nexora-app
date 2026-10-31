@@ -69,7 +69,7 @@ Pay from the **Billing** page of the developer console.
    |---|---|
    | **App Name** | Anything, e.g. `NexoraApp` |
    | **Zerodha Client ID** | Your Zerodha user ID (e.g. `AB1234`) |
-   | **Redirect URL** | `https://127.0.0.1/` (copy exactly). This is where Zerodha sends you after login. Nothing needs to run there. |
+   | **Redirect URL** | Your server's address followed by `/broker-callback/zerodha`: `https://nexora-backend-jp.fly.dev/broker-callback/zerodha` for the default server (copy exactly). This is where Zerodha sends you after login; the server finishes it. |
    | **Postback URL** | Leave empty |
    | **Description** | Anything, e.g. `Personal option trading` |
 
@@ -118,7 +118,7 @@ Zerodha logins via the API end every morning at about **6:00 AM IST**, so do thi
    <img src="screenshots/guide/login-in-app.png" width="280" alt="Login dialog with the Log in button">
 
 3. Log in with your Zerodha **user ID**, **password** and **2-step code**. The first time, Zerodha may ask you to **authorise** the app; allow it.
-4. That's it. Zerodha sends you back to `https://127.0.0.1/?...request_token=...` (your app's redirect URL); NexoraApp catches it, reads the `request_token` and creates the session by itself. The window closes and the card shows **Logged in**, and the button changes to **Re-login**.
+4. That's it. Zerodha sends you back to `https://nexora-backend-jp.fly.dev/broker-callback/zerodha?...request_token=...` (your app's redirect URL); NexoraApp catches it, reads the `request_token` and creates the session by itself. The window closes and the card shows **Logged in**, and the button changes to **Re-login**.
 
    <img src="screenshots/guide/logged-in.jpg" width="280" alt="Account card showing Logged in">
 
@@ -127,11 +127,8 @@ Tap **✕** at the top left to cancel the login page.
 ### In a browser (web version, or if the in-app login doesn't work)
 
 1. In the same dialog, tap **Open in browser** (on the web version it's called **Open login page**).
-2. Log in. The browser then tries to open `https://127.0.0.1/?...request_token=...` (your app's redirect URL) and shows an error such as *"This site can't be reached"*. **That's expected.** The part you need is in the address bar.
-3. Copy the **whole address** from the address bar:
-   - **Android (Chrome):** tap the address bar, tap the text once more to select all, then tap **Copy**.
-   - **iPhone (Safari):** tap the address bar, tap the text, choose **Select All**, then **Copy**.
-4. Switch back to NexoraApp, paste it into the box, and tap **Generate session**.
+2. Log in. Zerodha sends the browser to the server, which finishes the login and shows **Account linked**.
+3. Switch back to NexoraApp and switch tabs to refresh: the card shows **Logged in**.
 
 **If it fails:** the `request_token` works only once and expires within a few minutes. Close the dialog, tap **Login** again and repeat a little faster.
 

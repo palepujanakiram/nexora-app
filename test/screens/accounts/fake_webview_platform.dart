@@ -32,8 +32,14 @@ class FakeWebViewController extends PlatformWebViewController {
   Uri? loaded;
   JavaScriptMode? javaScriptMode;
 
+  /// How many times a page was loaded.
+  var loads = 0;
+
   @override
-  Future<void> loadRequest(LoadRequestParams params) async => loaded = params.uri;
+  Future<void> loadRequest(LoadRequestParams params) async {
+    loaded = params.uri;
+    loads++;
+  }
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async => this.javaScriptMode = javaScriptMode;
@@ -49,6 +55,8 @@ class FakeNavigationDelegate extends PlatformNavigationDelegate {
   PageEventCallback? onPageStarted;
   UrlChangeCallback? onUrlChange;
   ProgressCallback? onProgress;
+  HttpResponseErrorCallback? onHttpError;
+  WebResourceErrorCallback? onWebResourceError;
 
   @override
   Future<void> setOnNavigationRequest(NavigationRequestCallback onNavigationRequest) async =>
@@ -67,10 +75,11 @@ class FakeNavigationDelegate extends PlatformNavigationDelegate {
   Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {}
 
   @override
-  Future<void> setOnWebResourceError(WebResourceErrorCallback onWebResourceError) async {}
+  Future<void> setOnWebResourceError(WebResourceErrorCallback onWebResourceError) async =>
+      this.onWebResourceError = onWebResourceError;
 
   @override
-  Future<void> setOnHttpError(HttpResponseErrorCallback onHttpError) async {}
+  Future<void> setOnHttpError(HttpResponseErrorCallback onHttpError) async => this.onHttpError = onHttpError;
 
   @override
   Future<void> setOnHttpAuthRequest(HttpAuthRequestCallback onHttpAuthRequest) async {}

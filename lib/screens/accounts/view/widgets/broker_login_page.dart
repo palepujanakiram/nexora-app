@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../../common/presentation/widgets/info_banner.dart';
 import '../../model/login_redirect.dart';
 
 /// The broker's login page in an in-app browser. When the broker redirects
 /// back with the login code, the page closes and returns that address, so the
 /// user never has to copy it. Returns null if the user closes the page.
+///
+/// When the broker's page fails (an HTTP error such as Upstox refusing the
+/// client id or redirect URI, or no connection), a banner says so above the
+/// page instead of leaving it blank.
 class BrokerLoginPage extends StatefulWidget {
   const BrokerLoginPage({super.key, required this.title, required this.loginUrl, required this.redirect});
 
@@ -29,6 +34,10 @@ class _BrokerLoginPageState extends State<BrokerLoginPage> {
   var _progress = 0;
   var _finished = false;
 
+  /// Why the page didn't load, and where it stopped; null while it's fine.
+  String? _error;
+  String? _errorUrl;
+
   @override
   void initState() {
     super.initState();
@@ -44,8 +53,38 @@ class _BrokerLoginPageState extends State<BrokerLoginPage> {
         onProgress: (progress) {
           if (mounted) setState(() => _progress = progress);
         },
-      ))
-      ..loadRequest(Uri.parse(widget.loginUrl));
+        onHttpError: (error) {
+          final status = error.response?.statusCode;
+          _fail('The broker\'s page answered with an error${status == null ? '' : ' (HTTP $status)'}.',
+              (error.request?.uri ?? error.response?.uri)?.toString());
+        },
+        onWebResourceError: (error) {
+          // Images or scripts that fail don't stop the login page itself.
+          if (error.isForMainFrame == false) return;
+          _fail('The broker\'s page didn\'t load: ${error.description}', error.url);
+        },
+      ));
+    _load();
+  }
+
+  void _load() => _controller.loadRequest(Uri.parse(widget.loginUrl));
+
+  void _fail(String message, String? url) {
+    if (mounted) {
+      setState(() {
+        _error = message;
+        _errorUrl = url;
+      });
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _error = null;
+      _errorUrl = null;
+      _progress = 0;
+    });
+    _load();
   }
 
   /// Closes the page with [url] if it's the broker's redirect.
@@ -74,6 +113,28 @@ class _BrokerLoginPageState extends State<BrokerLoginPage> {
                 )
               : null,
         ),
-        body: WebViewWidget(controller: _controller),
+        body: Column(
+          children: [
+            if (_error != null) _errorBanner(context),
+            Expanded(child: WebViewWidget(controller: _controller)),
+          ],
+        ),
       );
+
+  Widget _errorBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: InfoBanner(
+        color: theme.colorScheme.errorContainer,
+        text: [
+          _error!,
+          ?_errorUrl,
+          'If the broker says the client id or redirect URI is wrong, the account\'s API key and redirect URI '
+              'must match your broker app exactly. Delete the account and add it again to change them.',
+        ].join('\n\n'),
+        action: TextButton(onPressed: _retry, child: const Text('Try again')),
+      ),
+    );
+  }
 }
