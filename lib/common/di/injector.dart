@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../screens/account_edit/usecase/delete_account_usecase.dart';
 import '../../screens/account_edit/usecase/get_broker_callback_url_usecase.dart';
 import '../../screens/account_edit/usecase/save_account_usecase.dart';
+import '../../screens/accounts/usecase/check_broker_login_usecase.dart';
 import '../../screens/accounts/usecase/get_login_url_usecase.dart';
 import '../../screens/accounts/usecase/login_with_redirect_usecase.dart';
 import '../../screens/accounts/usecase/set_access_token_usecase.dart';
@@ -138,6 +139,7 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
   sl
     ..registerFactory(() => ToggleAccountEnabledUseCase(sl()))
     ..registerFactory(() => GetLoginUrlUseCase(sl()))
+    ..registerFactory(() => CheckBrokerLoginUseCase(sl()))
     ..registerFactory(() => LoginWithRedirectUseCase(sl(), sl()))
     ..registerFactory(() => SetAccessTokenUseCase(sl()));
 

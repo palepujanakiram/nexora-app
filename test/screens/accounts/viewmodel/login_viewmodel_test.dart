@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
+import 'package:nexora_app/screens/accounts/usecase/check_broker_login_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/get_login_url_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/login_with_redirect_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/set_access_token_usecase.dart';
@@ -35,7 +36,8 @@ void main() {
   LoginViewModel build(BrokerAccount account, {FakeAccountRepository? repo}) {
     final r = repo ?? accounts;
     return LoginViewModel(
-        account, GetLoginUrlUseCase(broker), LoginWithRedirectUseCase(broker, r), SetAccessTokenUseCase(r));
+        account, GetLoginUrlUseCase(broker), LoginWithRedirectUseCase(broker, r), SetAccessTokenUseCase(r),
+        CheckBrokerLoginUseCase(broker));
   }
 
   setUp(() {
@@ -145,5 +147,39 @@ void main() {
     final vm = build(testAccount().copyWith(broker: BrokerType.upstox));
     expect(vm.state.codeName, 'code');
     expect(vm.state.redirectLogin, isTrue);
+  });
+
+  group('waitForLogin', () {
+    const every = Duration(milliseconds: 1);
+
+    test('asks until the server reports the login finished, riding out failed checks', () async {
+      broker
+        ..loginFinishesOnServer = true
+        ..loginChecks = [false, Exception('offline'), true];
+      final vm = build(accounts.current.single);
+      expect(vm.state.loginFinishesOnServer, isTrue);
+      final waiting = vm.waitForLogin(every: every);
+      expect(vm.state.waiting, isTrue);
+      expect(await vm.waitForLogin(every: every), isFalse, reason: 'already waiting');
+      expect(await waiting, isTrue);
+      expect([vm.state.waiting, vm.state.error], [false, null]);
+      expect(broker.checked, ['a', 'a', 'a']);
+    });
+
+    test('gives up after the timeout and says what to try', () async {
+      final vm = build(accounts.current.single);
+      expect(await vm.waitForLogin(every: every, timeout: const Duration(milliseconds: 3)), isFalse);
+      expect(vm.state.waiting, isFalse);
+      expect(vm.state.error, contains('The login didn\'t finish.'));
+      expect(broker.checked, hasLength(3));
+    });
+
+    test('stops when the dialog closes', () async {
+      final vm = build(accounts.current.single);
+      final waiting = vm.waitForLogin(every: every);
+      vm.dispose();
+      expect(await waiting, isFalse);
+      expect(broker.checked, isEmpty);
+    });
   });
 }

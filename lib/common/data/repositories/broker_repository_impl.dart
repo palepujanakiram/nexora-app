@@ -31,6 +31,13 @@ class BrokerRepositoryImpl implements BrokerRepository {
   @override
   bool get acceptsAccessTokens => true;
 
+  /// The redirect comes back to this app, which exchanges it itself.
+  @override
+  bool get loginFinishesOnServer => false;
+
+  @override
+  Future<bool> checkLoggedIn(BrokerAccount account) async => account.hasValidToken;
+
   @override
   Future<String> loginUrl(BrokerAccount account) async => _api(account).loginUrl();
 

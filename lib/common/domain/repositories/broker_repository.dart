@@ -9,6 +9,15 @@ abstract interface class BrokerRepository {
   /// a server holds the tokens.
   bool get acceptsAccessTokens;
 
+  /// Whether the broker's redirect lands on a server that finishes the login
+  /// by itself. The app then only opens the login page and waits
+  /// ([checkLoggedIn]), instead of catching the redirect.
+  bool get loginFinishesOnServer;
+
+  /// Whether [account] is logged in to its broker now, as freshly as the
+  /// repository can tell.
+  Future<bool> checkLoggedIn(BrokerAccount account);
+
   /// URL the user opens to log in and authorise the app for today. A server
   /// issues a fresh one (with its own short-lived state) each time.
   Future<String> loginUrl(BrokerAccount account);

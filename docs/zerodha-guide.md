@@ -113,18 +113,18 @@ Zerodha logins via the API end every morning at about **6:00 AM IST**, so do thi
 ### On iPhone or Android (automatic)
 
 1. On the **Accounts** tab, find your Zerodha card and tap **Login**.
-2. Tap **Log in**. Zerodha's login page opens inside NexoraApp.
+2. Tap **Log in**. Zerodha's login page opens in Safari's in-app view (on Android, in a Chrome tab).
 
    <img src="screenshots/guide/login-in-app.png" width="280" alt="Login dialog with the Log in button">
 
 3. Log in with your Zerodha **user ID**, **password** and **2-step code**. The first time, Zerodha may ask you to **authorise** the app; allow it.
-4. That's it. Zerodha sends you back to `https://nexora-backend-jp.fly.dev/broker-callback/zerodha?...request_token=...` (your app's redirect URL); NexoraApp catches it, reads the `request_token` and creates the session by itself. The window closes and the card shows **Logged in**, and the button changes to **Re-login**.
+4. Zerodha sends you on to the server, which finishes the login and shows **Account linked**. Close that page (**Done** at the top left). NexoraApp notices by itself: the dialog closes, the card shows **Logged in**, and the button changes to **Re-login**.
 
    <img src="screenshots/guide/logged-in.jpg" width="280" alt="Account card showing Logged in">
 
-Tap **✕** at the top left to cancel the login page.
+Tap **Done** at the top left to close the login page.
 
-### In a browser (web version, or if the in-app login doesn't work)
+### In another browser (web version, or as a fallback)
 
 1. In the same dialog, tap **Open in browser** (on the web version it's called **Open login page**).
 2. Log in. Zerodha sends the browser to the server, which finishes the login and shows **Account linked**.

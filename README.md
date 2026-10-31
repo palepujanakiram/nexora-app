@@ -32,7 +32,7 @@ into orders on any number of **Zerodha (Kite Connect)**, **Upstox** and **Groww*
 
 | | Zerodha (Kite Connect) | Upstox | Groww |
 |---|---|---|---|
-| **Daily login** | Kite login page inside the app; the redirect (`request_token`) is caught automatically | Upstox login page inside the app; the redirect to your Redirect URI (`code`) is caught automatically | Approve the key on Groww's API keys page → **Generate session** (or a TOTP code) |
+| **Daily login** | Kite login page in Safari's in-app view; the server finishes the login and the app notices | Upstox login page in Safari's in-app view; the server finishes the login and the app notices | Approve the key on Groww's API keys page → **Generate session** (or a TOTP code) |
 | **Session expires** | 06:00 IST | 03:30 IST | 06:00 IST |
 | **Contract lookup** | Kite instrument list (NFO/BFO) | Option-contract API (indices only) | Groww's public instrument list (NSE/BSE F&O) |
 | **Entry order** | LIMIT (`/orders/regular`) | LIMIT (HFT `/v3/order/place`); with exits on, the entry is a leg of the GTT | LIMIT (`/v1/order/create`) |
@@ -51,7 +51,7 @@ The app has four tabs: **Signal**, **Accounts**, **Activity** and **Settings**. 
 | | |
 |---|---|
 | <img src="docs/screenshots/add-account.jpg" width="260" alt="Add account form"> | **Accounts → Add account.** Pick the stock broker with the radio buttons (Zerodha, Upstox or Groww); the fields change to match it (Upstox also needs the redirect URI from your Upstox app).<br><br>For each account set the **lots per signal**, the **product** (carry forward or intraday) and **Paper mode**. Paper mode is on by default: the app simulates the orders and sends nothing to the broker.<br><br>Below the form, **How to get your … API keys** lists the steps and links to the broker's developer site and docs. |
-| <img src="docs/screenshots/accounts.jpg" width="260" alt="Accounts list"> | Accounts are grouped by broker, and you can add as many keys per broker as you need. Each card shows the masked key, lots, product, **PAPER** / **LIVE** and whether today's session is active.<br><br>**Use by default** decides whether the account is ticked on the Signal screen.<br><br>**Login** (daily):<ul><li>**Zerodha / Upstox (iPhone/Android):** **Log in** opens the broker's login page inside NexoraApp. After you sign in, the app catches the broker's redirect, reads the `request_token` (Kite) or `code` (Upstox) and exchanges it for an access token by itself.</li><li>**Web, or as a fallback:** **Open in browser** / **Open login page**, sign in, then paste back the URL you land on.</li><li>**Groww:** **Open API keys page**, approve today's access, then tap **Generate session** (or enter a TOTP code first).</li><li>Any broker: paste an access token and tap **It is an access token**.</li></ul> |
+| <img src="docs/screenshots/accounts.jpg" width="260" alt="Accounts list"> | Accounts are grouped by broker, and you can add as many keys per broker as you need. Each card shows the masked key, lots, product, **PAPER** / **LIVE** and whether today's session is active.<br><br>**Use by default** decides whether the account is ticked on the Signal screen.<br><br>**Login** (daily):<ul><li>**Zerodha / Upstox:** **Log in** opens the broker's login page in Safari's in-app view (a Chrome tab on Android, a new tab on the web). The broker sends you on to the server, which finishes the login and shows **Account linked**; the app notices by itself and closes the dialog. The broker app's redirect URL must be the server's `/broker-callback/zerodha` or `/broker-callback/upstox`.</li><li>**Web, or as a fallback:** **Open in browser** / **Open login page**, sign in, then paste back the URL you land on.</li><li>**Groww:** **Open API keys page**, approve today's access, then tap **Generate session** (or enter a TOTP code first).</li><li>Any broker: paste an access token and tap **It is an access token**.</li></ul> |
 
 ### 2. Paste a signal and execute it
 
@@ -166,7 +166,7 @@ Each guide goes through the same six parts:
 | 1. Get ready | F&O enabled on your broker account, NexoraApp on your phone | No |
 | 2. Create the broker's API app or key | Get an API key and secret from the broker's developer site | No |
 | 3. Add the account in NexoraApp | Enter the key and secret; **Paper mode** stays on | No |
-| 4. Log in (every trading day) | Zerodha/Upstox: **Login → Log in**, sign in on the broker's page inside the app; NexoraApp picks up the login by itself. Groww: approve the key on its API keys page, then **Generate session**. | No |
+| 4. Log in (every trading day) | Zerodha/Upstox: **Login → Log in**, sign in on the broker's page (Safari's in-app view); NexoraApp picks up the login by itself. Groww: approve the key on its API keys page, then **Generate session**. | No |
 | 5. Paper trade | Run a signal for a real contract: the app looks up the real contract and lot size but places nothing | No |
 | 6. Live trade | Register a static IP, turn **Paper mode** off, confirm **Place LIVE orders?**, then check the order in the broker's app | **Yes** |
 

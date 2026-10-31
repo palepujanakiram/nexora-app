@@ -7,6 +7,7 @@ import 'package:nexora_app/screens/account_edit/usecase/delete_account_usecase.d
 import 'package:nexora_app/screens/account_edit/usecase/get_broker_callback_url_usecase.dart';
 import 'package:nexora_app/screens/account_edit/usecase/save_account_usecase.dart';
 import 'package:nexora_app/screens/account_edit/view/account_edit_view.dart';
+import 'package:nexora_app/screens/accounts/usecase/check_broker_login_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/get_login_url_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/login_with_redirect_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/set_access_token_usecase.dart';
@@ -28,6 +29,7 @@ void main() {
       ..registerFactory(() => WatchAccountsUseCase(accounts))
       ..registerFactory(() => ToggleAccountEnabledUseCase(accounts))
       ..registerFactory(() => GetLoginUrlUseCase(broker))
+        ..registerFactory(() => CheckBrokerLoginUseCase(broker))
       ..registerFactory(() => LoginWithRedirectUseCase(broker, accounts))
       ..registerFactory(() => SetAccessTokenUseCase(accounts))
       ..registerFactory(() => SaveAccountUseCase(accounts))

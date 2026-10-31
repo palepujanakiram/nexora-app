@@ -14,4 +14,11 @@ void main() {
     brokers.acceptsAccessTokens = false;
     expect(GetLoginUrlUseCase(brokers).acceptsAccessTokens, isFalse);
   });
+
+  test('says whether the server finishes the login', () {
+    final brokers = FakeBrokerRepository();
+    expect(GetLoginUrlUseCase(brokers).loginFinishesOnServer, isFalse);
+    brokers.loginFinishesOnServer = true;
+    expect(GetLoginUrlUseCase(brokers).loginFinishesOnServer, isTrue);
+  });
 }

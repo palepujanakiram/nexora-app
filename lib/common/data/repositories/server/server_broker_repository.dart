@@ -20,6 +20,18 @@ class ServerBrokerRepository implements BrokerRepository {
   @override
   bool get acceptsAccessTokens => false;
 
+  /// The broker redirects to the server's `/broker-callback/<broker>`, which
+  /// finishes the login.
+  @override
+  bool get loginFinishesOnServer => true;
+
+  /// Reads the account again (`GET /broker-accounts/:id`) and applies it.
+  @override
+  Future<bool> checkLoggedIn(BrokerAccount account) async {
+    _accounts.putFromServer(await _api.get('/broker-accounts/${account.id}'));
+    return _accounts.current.where((a) => a.id == account.id).firstOrNull?.hasValidToken ?? false;
+  }
+
   /// The server's login challenge for today (`GET …/relink`): the broker's
   /// login page, or Groww's API keys page. Paper accounts get none: the
   /// server simulates their orders, so it says why instead.

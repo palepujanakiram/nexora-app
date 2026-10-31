@@ -10,12 +10,19 @@ import '../../model/login_redirect.dart';
 import '../../viewmodel/login_viewmodel.dart';
 import 'broker_login_page.dart';
 
-/// Daily login. On iOS/Android, Zerodha and Upstox log in inside the app: the
-/// broker's page opens in an in-app browser and the redirect is caught
-/// automatically. Otherwise (and as a fallback) the user opens the login page
-/// in a browser and pastes back the redirect URL, or pastes an access token.
-/// Groww has no redirect: the user approves access on its API keys page, then
-/// generates the session (optionally with a TOTP code).
+/// Daily login. With a server, Zerodha and Upstox redirect to the server,
+/// which finishes the login: the broker's page opens in the system browser
+/// (Safari's in-app view on iPhone) and the dialog waits until the server
+/// reports the account logged in. The app's own web view isn't used there:
+/// it keeps retrying Upstox over HTTP/3 once Upstox has advertised it, and
+/// hangs where that doesn't get through.
+///
+/// Without a server, on iOS/Android the broker's page opens in an in-app
+/// browser and the redirect is caught automatically. Otherwise (and as a
+/// fallback) the user opens the login page in a browser and pastes back the
+/// redirect URL, or pastes an access token. Groww has no redirect: the user
+/// approves access on its API keys page, then generates the session
+/// (optionally with a TOTP code).
 class LoginDialog extends StatelessWidget {
   const LoginDialog({super.key, required this.account, this.inAppBrowser = !kIsWeb});
 
@@ -30,7 +37,7 @@ class LoginDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
-        create: (_) => LoginViewModel(account, sl(), sl(), sl()),
+        create: (_) => LoginViewModel(account, sl(), sl(), sl(), sl()),
         child: _LoginBody(redirect: inAppBrowser ? LoginRedirect.forAccount(account) : null),
       );
 }
@@ -59,6 +66,15 @@ class _LoginBodyState extends State<_LoginBody> {
     if (ok && mounted) Navigator.pop(context);
   }
 
+  /// Opens the broker's page in the system browser and waits for the server
+  /// to finish the login.
+  Future<void> _loginViaServer(LoginViewModel vm) async {
+    await launchUrl(Uri.parse(vm.state.loginUrl),
+        mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.inAppBrowserView);
+    final ok = await vm.waitForLogin();
+    if (ok && mounted) Navigator.pop(context);
+  }
+
   /// Logs in on the broker's page inside the app, then creates the session
   /// from the redirect it returns.
   Future<void> _loginInApp(LoginViewModel vm, LoginRedirect redirect) async {
@@ -78,7 +94,8 @@ class _LoginBodyState extends State<_LoginBody> {
     final vm = context.watch<LoginViewModel>();
     final state = vm.state;
     final redirect = state.redirectLogin;
-    final inApp = widget.redirect;
+    final viaServer = redirect && state.loginFinishesOnServer;
+    final inApp = viaServer ? null : widget.redirect;
     return AlertDialog(
       title: Text('Log in — ${vm.account.label}'),
       content: SingleChildScrollView(
@@ -88,6 +105,29 @@ class _LoginBodyState extends State<_LoginBody> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (viaServer) ...[
+                const Text('Sign in on the broker\'s page. When it says "Account linked", close it: '
+                    'Srisarani Stocks picks up the login by itself.'),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: state.busy || state.waiting || state.loginUrl.isEmpty ? null : () => _loginViaServer(vm),
+                  icon: const Icon(Icons.login),
+                  label: const Text('Log in'),
+                ),
+                if (state.waiting) ...[
+                  const SizedBox(height: 12),
+                  const Row(
+                    children: [
+                      SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Waiting for the broker login to finish…')),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Text('If the page ends on another address:', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+              ],
               if (inApp != null) ...[
                 const Text('Sign in on the broker\'s page. Srisarani Stocks picks up the login by itself.'),
                 const SizedBox(height: 8),
