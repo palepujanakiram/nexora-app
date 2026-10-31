@@ -83,4 +83,44 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(results, [null]);
   });
+
+  testWidgets('an HTTP error from the broker shows a banner with the address, and Try again reloads', (tester) async {
+    await open(tester);
+    expect(find.textContaining('client id or redirect URI'), findsNothing);
+
+    platform.delegate!.onHttpError!(HttpResponseError(
+      request: WebResourceRequest(uri: Uri.parse(loginUrl)),
+      response: const WebResourceResponse(uri: null, statusCode: 401),
+    ));
+    await tester.pump();
+    expect(find.textContaining('The broker\'s page answered with an error (HTTP 401).'), findsOneWidget);
+    expect(find.textContaining(loginUrl), findsOneWidget);
+    expect(find.textContaining('client id or redirect URI is wrong'), findsOneWidget);
+    expect(find.text('fake browser'), findsOneWidget, reason: 'the page stays visible below');
+
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(find.textContaining('HTTP 401'), findsNothing);
+    expect(platform.controller!.loads, 2);
+  });
+
+  testWidgets('a page that fails to load says why; failed images and scripts don\'t', (tester) async {
+    await open(tester);
+    platform.delegate!.onWebResourceError!(
+        const WebResourceError(errorCode: -1, description: 'img failed', isForMainFrame: false));
+    await tester.pump();
+    expect(find.textContaining('img failed'), findsNothing);
+
+    platform.delegate!.onWebResourceError!(
+        const WebResourceError(errorCode: -1009, description: 'The Internet connection appears to be offline.'));
+    platform.delegate!.onHttpError!(const HttpResponseError());
+    await tester.pump();
+    expect(find.textContaining('answered with an error.'), findsOneWidget, reason: 'the latest error, without a status');
+
+    platform.delegate!.onWebResourceError!(const WebResourceError(
+        errorCode: -1009, description: 'The Internet connection appears to be offline.', url: 'https://login.upstox.com/'));
+    await tester.pump();
+    expect(find.textContaining('didn\'t load: The Internet connection appears to be offline.'), findsOneWidget);
+    expect(find.textContaining('https://login.upstox.com/'), findsOneWidget);
+  });
 }

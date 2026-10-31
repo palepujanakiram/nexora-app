@@ -43,8 +43,8 @@ Creating an "app" with Upstox gives you the API key and secret. You only do this
    | Field | What to enter |
    |---|---|
    | **App name** | Anything, e.g. `NexoraApp` |
-   | **Redirect URL** | `https://127.0.0.1/` (copy exactly, including the final `/`). You'll type the very same text into NexoraApp in Part 3. |
-   | **Postback URL** | Leave empty if allowed; otherwise use the same `https://127.0.0.1/` |
+   | **Redirect URL** | Your server's address followed by `/broker-callback/upstox`: `https://nexora-backend-jp.fly.dev/broker-callback/upstox` for the default server (copy exactly). NexoraApp fills in the same address in Part 3. |
+   | **Postback URL** | Leave empty if allowed; otherwise use `https://nexora-backend-jp.fly.dev/webhooks/upstox` |
    | **Primary IP / Secondary IP** (static IP) | Needed only for live orders. If you already have a static IP, enter it now; otherwise see Part 6.1. |
    | **Description** | Anything, e.g. `Personal option trading` |
 
@@ -74,7 +74,7 @@ Creating an "app" with Upstox gives you the API key and secret. You only do this
    | **Name** | A label for you, e.g. `My Upstox` |
    | **API key (client_id)** | The API Key from Part 2, step 4 |
    | **API secret** | The API Secret from Part 2, step 4 (tap the eye icon to check it) |
-   | **Redirect URI** | **Exactly** the Redirect URL from Part 2, e.g. `https://127.0.0.1/`. Even a missing `/` at the end makes login fail. |
+   | **Redirect URI** | Filled in for you with the server's address, e.g. `https://nexora-backend-jp.fly.dev/broker-callback/upstox`. It must be **exactly** the Redirect URL from Part 2, or Upstox refuses the login with *"Check your 'client_id' and 'redirect_uri'"*. The server can't change it later: to fix it, delete the account and add it again. |
    | **Lots per signal** | `1` while testing. The app buys this many lots per signal. |
    | **Product** | **Carry forward (NRML)** to hold overnight, or **Intraday (MIS)** to square off the same day |
    | **Paper mode** | **On**, and keep it on until Part 6 |
@@ -101,7 +101,7 @@ Upstox logins via the API end every morning at about **3:30 AM IST**, so do this
    <img src="screenshots/guide/login-in-app.png" width="280" alt="Login dialog with the Log in button">
 
 3. Log in with your **mobile number**, the **OTP** and your **6-digit PIN**. If Upstox asks you to allow the app, allow it.
-4. That's it. Upstox sends you back to your **Redirect URI** (e.g. `https://127.0.0.1/?code=...`); NexoraApp catches it, reads the `code` and creates the session by itself. The window closes and the card shows **Logged in**, and the button changes to **Re-login**.
+4. That's it. Upstox sends you back to your **Redirect URI** (`https://nexora-backend-jp.fly.dev/broker-callback/upstox?code=...`); NexoraApp catches it, reads the `code` and creates the session by itself. The window closes and the card shows **Logged in**, and the button changes to **Re-login**.
 
    <img src="screenshots/guide/logged-in.jpg" width="280" alt="Account card showing Logged in">
 
@@ -110,11 +110,10 @@ Tap **✕** at the top left to cancel the login page.
 ### In a browser (web version, or if the in-app login doesn't work)
 
 1. In the same dialog, tap **Open in browser** (on the web version it's called **Open login page**).
-2. Log in. The browser then tries to open your **Redirect URI** (e.g. `https://127.0.0.1/?code=...`) and shows an error such as *"This site can't be reached"*. **That's expected.** The part you need is in the address bar.
-3. Copy the **whole address** from the address bar:
-   - **Android (Chrome):** tap the address bar, tap the text once more to select all, then tap **Copy**.
-   - **iPhone (Safari):** tap the address bar, tap the text, choose **Select All**, then **Copy**.
-4. Switch back to NexoraApp, paste it into the box, and tap **Generate session**.
+2. Log in. Upstox sends the browser to the server, which finishes the login and shows **Account linked**.
+3. Switch back to NexoraApp and switch tabs to refresh: the card shows **Logged in**.
+
+If the page shows *"Check your 'client_id' and 'redirect_uri'"* instead, the account's API key or Redirect URI doesn't match your Upstox app (Part 2): delete the account and add it again with matching values.
 
 **If it fails:** the `code` works only once and expires within a few minutes. Close the dialog, tap **Login** again and repeat a little faster.
 
