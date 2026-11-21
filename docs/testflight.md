@@ -126,6 +126,30 @@ version: 1.1.0+1
 
 The `+1` part is ignored by the lane; it always uses the next TestFlight build number.
 
+## Automatic releases on push to main
+
+[`.github/workflows/testflight.yml`](../.github/workflows/testflight.yml) runs `bundle exec fastlane beta` on a macOS GitHub Actions runner every time a commit lands on `main`. It signs with the App Store Connect API key (`SIGN_WITH_API_KEY=true`), the same way CI does, so no Apple ID is needed.
+
+macOS runners are billed per minute on GitHub's standard plans (no free-tier credits like Xcode Cloud gives) — see [GitHub's per-minute rates](https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions) before relying on this for every push.
+
+### One-time setup
+
+Add these as **repository secrets** (Settings → Secrets and variables → Actions → New repository secret), using the same App Store Connect API key from [step 3](#3-create-an-app-store-connect-api-key) above. The key needs the **Admin** role, since CI signs with it instead of a Mac's signed-in Apple ID:
+
+| Secret | Value |
+|---|---|
+| `ASC_KEY_ID` | The key's Key ID |
+| `ASC_ISSUER_ID` | The Issuer ID from the Integrations page |
+| `ASC_KEY_CONTENT` | The `.p8` file's contents, base64-encoded: `base64 -i AuthKey_XXXXXXXXXX.p8 \| pbcopy` |
+
+No other setup is needed — the workflow installs Flutter and the `ios/Gemfile` bundle itself on each run.
+
+### Triggering it
+
+Every push to `main` (including a merged PR) kicks off the job automatically. Check progress under the repo's **Actions** tab. A failure in `flutter analyze` or the coverage gate stops the release before anything is uploaded, same as running `fastlane beta` locally.
+
+This runs independently of the [Xcode Cloud](xcode-cloud.md) workflow — use one, the other, or both; they don't conflict since both read the same `pubspec.yaml` version and TestFlight build-number sequence.
+
 ## After the upload
 
 - **Export compliance:** `ios/Runner/Info.plist` declares `ITSAppUsesNonExemptEncryption` = `NO` (the app only uses standard HTTPS), so new builds don't ask about encryption. If the app ever adds other encryption, change this and answer the question in App Store Connect.
