@@ -49,15 +49,9 @@ The app has five tabs: **Signals**, **Signal**, **Accounts**, **Activity** and *
 
 ### 0. Signals (the first tab): live NIFTY/SENSEX feed
 
-Read-only trade signals from Nexora's EMA Pivot rule — the same engine that sends the Telegram alerts, shown as a tool reading, not investment advice. Each card shows a trade's side (BUY CE/PE), entry, stop loss (and how many times it has trailed), both targets with hit flags, status (`active`/`t1`/`t2`/`stopped`/`invalidated`) and running points/R once it has moved. The feed polls once a minute (the API caches for 60 seconds, so anything faster gains nothing) and can be pulled to refresh.
+Read-only trade signals from Nexora's EMA Pivot (EP) and Elliott Wave (EW) rules — the same engine that sends the Telegram alerts, shown as a tool reading, not investment advice. Each card shows a trade's side (BUY CE/PE), entry, stop loss (and how many times it has trailed), named targets with hit flags, its status and running points/R once it has moved. The feed polls once a minute (the API caches for 60 seconds, so anything faster gains nothing) and can be pulled to refresh.
 
-The vendor's API key must stay server-side, so the Feed tab calls [proxy/cloudflare-worker](proxy/cloudflare-worker/README.md)'s `/signals` route instead of the vendor's API directly — see that folder's **Signals proxy (Feed tab)** section to deploy it and set `EPS_API_KEY`. Point the app at your deployed Worker with:
-
-```bash
-flutter build web --dart-define=EPS_SIGNALS_PROXY_URL=https://nexora-cors-proxy.<your-subdomain>.workers.dev
-```
-
-Without it, the tab shows setup instructions instead of calling out. Only the measured-profitable rows the vendor recommends are shown: both symbols, the 15m/30m/1H timeframes (never 3m/5m, which the vendor's own testing shows lose money) and no option premium signals (which can't be tested at all).
+The vendor's API key must stay server-side, so the Feed tab calls nexora-backend's `GET /signals/feed` — the same authenticated server every other screen already uses — instead of the vendor's API directly. The app sends no key of its own; the server adds it from its own `EPS_API_KEY` setting. Only the measured-profitable rows the vendor's own testing recommends are returned: both symbols, the 15m/30m/1H timeframes (never 3m/5m) and no option premium signals. Since this goes through the signed-in server, the Feed tab only has data once you're signed in — same as every other tab.
 
 ### 1. Add your broker accounts
 
@@ -136,6 +130,7 @@ Each platform's build signs in as its own client on the server, which sets how l
 Once signed in:
 
 - **Signal**, **Accounts** and **Activity** run on the server: it places the orders and keeps them for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
+- **Signals (the Feed tab):** the server proxies Nexora's EMA Pivot signals API, adding the vendor's key from its own `EPS_API_KEY` setting — the app never holds that key.
 - **Orders:** the server places a LIMIT entry on each ticked account (accounts with the same lots and product go in one order) and reports each account's result: open, filled, rejected with the broker's reason, or *not confirmed yet* while it checks with the broker. It places the entry only: set the stop loss and target in the broker's app. Its risk checks (market hours, daily order cap, order value, kill switch) can refuse an order before it reaches any broker.
 - **Accounts:** the server keeps the broker, name, keys and paper/live mode. Lots, product, **Use by default** and the Upstox redirect URI are kept on each device. To change an account's name or keys, delete it and add it again. Accounts at brokers this app doesn't support yet (Angel One) aren't shown.
 - **Activity** lists the server's orders, one line per account. **Clear** hides the older ones on this device; the server keeps every order.
@@ -207,8 +202,8 @@ lib/
     data/
       models/               JSON mappers for entities
       datasources/local/    secure storage (keys/tokens), shared preferences
-      datasources/remote/   Zerodha (Kite Connect), Upstox and Groww APIs, EPS signals, shared HTTP helpers
-      repositories/         repository implementations (in-memory cache + change stream; broker routing; proxy check)
+      datasources/remote/   Zerodha (Kite Connect), Upstox and Groww APIs, shared HTTP helpers
+      repositories/         repository implementations, and repositories/server/ for the signed-in nexora-backend ones (accounts, activity, broker, signal execution, EPS signals)
     presentation/           shared widgets and theme
     error/  utils/
   screens/<screen>/         feed, signal, accounts, account_edit, activity, settings, home

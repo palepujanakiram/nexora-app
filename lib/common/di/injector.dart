@@ -31,19 +31,17 @@ import '../../screens/signal/usecase/execute_signal_usecase.dart';
 import '../../screens/signal/usecase/parse_signal_usecase.dart';
 import '../data/datasources/local/preferences_datasource.dart';
 import '../data/datasources/local/secure_storage_datasource.dart';
-import '../data/datasources/remote/eps_signals_api.dart';
 import '../data/repositories/account_repository_impl.dart';
 import '../data/repositories/activity_repository_impl.dart';
 import '../data/repositories/broker_repository_impl.dart';
-import '../data/repositories/eps_signals_repository_impl.dart';
 import '../data/repositories/proxy_repository_impl.dart';
 import '../data/repositories/server/server_account_repository.dart';
 import '../data/repositories/server/server_activity_repository.dart';
 import '../data/repositories/server/server_broker_repository.dart';
+import '../data/repositories/server/server_eps_signals_repository.dart';
 import '../data/repositories/server/server_signal_execution_repository.dart';
 import '../data/repositories/server_repository_impl.dart';
 import '../data/repositories/settings_repository_impl.dart';
-import '../domain/entities/eps_signals_config.dart';
 import '../domain/repositories/account_repository.dart';
 import '../domain/repositories/activity_repository.dart';
 import '../domain/repositories/broker_repository.dart';
@@ -82,14 +80,13 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
   sl
     ..registerSingleton<SettingsRepository>(settings)
     ..registerSingleton<ServerRepository>(server)
-    ..registerSingleton<ProxyRepository>(ProxyRepositoryImpl(client))
-    ..registerSingleton<EpsSignalsRepository>(
-      EpsSignalsRepositoryImpl(EpsSignalsApi(client, proxyBaseUrl: EpsSignalsConfig.proxyUrl)),
-    );
+    ..registerSingleton<ProxyRepository>(ProxyRepositoryImpl(client));
 
-  /// Accounts, broker logins, orders and activity live on the server while
-  /// signed in. Signed out, the device-only repositories stand in; the login
-  /// screen doesn't use them.
+  /// Accounts, broker logins, orders, activity and the signals feed live on
+  /// the server while signed in — the feed needs it, since that's the only
+  /// place the vendor's API key is allowed to live. Signed out, the
+  /// device-only repositories stand in for the rest; the login screen
+  /// doesn't use any of them, and the Feed tab isn't reachable signed out.
   var wired = false;
   Future<void> switchDataSource(ServerSession? session) async {
     if (wired && identical(session, activeSession.value)) return;
@@ -100,6 +97,7 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
       sl.unregisterIfRegistered<ActivityRepository>,
       sl.unregisterIfRegistered<BrokerRepository>,
       sl.unregisterIfRegistered<SignalExecutionRepository>,
+      sl.unregisterIfRegistered<EpsSignalsRepository>,
     ]) {
       await unregister();
     }
@@ -115,7 +113,8 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
         ..registerSingleton<AccountRepository>(accounts)
         ..registerSingleton<ActivityRepository>(ServerActivityRepository(api, accounts, prefs))
         ..registerSingleton<BrokerRepository>(ServerBrokerRepository(api, accounts))
-        ..registerSingleton<SignalExecutionRepository>(ServerSignalExecutionRepository(api, accounts));
+        ..registerSingleton<SignalExecutionRepository>(ServerSignalExecutionRepository(api, accounts))
+        ..registerSingleton<EpsSignalsRepository>(ServerEpsSignalsRepository(api));
     }
     dataGeneration.value++;
   }

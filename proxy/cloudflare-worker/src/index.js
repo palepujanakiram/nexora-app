@@ -18,25 +18,7 @@
  *
  * Note: Cloudflare's outgoing IPs are shared and change, so this can't be
  * registered as a static IP with brokers. Use it for testing only.
- *
- * GET /signals proxies Nexora's EMA Pivot signals API for the Feed tab, on
- * every platform (not just web): it adds the vendor's x-api-key from the
- * EPS_API_KEY secret, which must never be set as the request's own `x-api-key`
- * header, in app code, or in this file. Set it with
- * `npx wrangler secret put EPS_API_KEY` so it's encrypted and kept out of
- * source control; it's not a [vars] entry like the ones below. This route is
- * open to any origin (it carries no account credentials) and only ever
- * forwards to Nexora's own signals host.
  */
-
-const EPS_API_URL = 'https://zxrzvywkyhyssajdkdpy.supabase.co/functions/v1/eps-api';
-const EPS_ALLOWED_PARAMS = new Set(['symbols', 'tfs', 'history', 'options', 'levels']);
-
-const SIGNALS_CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
 
 const ALLOWED_HOSTS = new Set([
   'api.kite.trade',
@@ -64,10 +46,6 @@ const STRIPPED_HEADERS = ['origin', 'referer', 'host', 'cookie'];
 
 export default {
   async fetch(request, env = {}) {
-    if (new URL(request.url).pathname === '/signals') {
-      return handleSignals(request, env);
-    }
-
     const ordersEnabled = env.ALLOW_ORDERS === 'true';
     const origin = request.headers.get('Origin');
     const originAllowed = !!origin && isOriginAllowed(origin, env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS);
@@ -81,32 +59,6 @@ export default {
     return handleAllowedOrigin(request, corsHeaders(origin), ordersEnabled);
   },
 };
-
-/** Forwards to Nexora's EMA Pivot signals API with the vendor key added server-side. */
-export async function handleSignals(request, env) {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: SIGNALS_CORS });
-  if (request.method !== 'GET') {
-    return json({ status: 'error', message: 'Only GET is supported.' }, 405, SIGNALS_CORS);
-  }
-  if (!env.EPS_API_KEY) {
-    return json({ status: 'error', message: 'Signals proxy: EPS_API_KEY is not configured.' }, 500, SIGNALS_CORS);
-  }
-
-  const target = new URL(EPS_API_URL);
-  for (const [key, value] of new URL(request.url).searchParams) {
-    if (EPS_ALLOWED_PARAMS.has(key)) target.searchParams.set(key, value);
-  }
-
-  let upstream;
-  try {
-    upstream = await fetch(target.toString(), { headers: { 'x-api-key': env.EPS_API_KEY, Accept: 'application/json' } });
-  } catch {
-    return json({ status: 'error', message: "Couldn't reach the signals service." }, 502, SIGNALS_CORS);
-  }
-  const response = new Response(upstream.body, upstream);
-  for (const [k, v] of Object.entries(SIGNALS_CORS)) response.headers.set(k, v);
-  return response;
-}
 
 /** Readable by any origin so the app can explain a rejected origin. */
 function health(origin, originAllowed, ordersEnabled) {

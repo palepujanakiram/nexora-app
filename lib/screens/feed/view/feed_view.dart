@@ -4,55 +4,26 @@ import 'package:provider/provider.dart';
 
 import '../../../common/di/injector.dart';
 import '../../../common/domain/entities/eps_signal.dart';
-import '../../../common/domain/entities/eps_signals_config.dart';
 import '../../../common/presentation/widgets/info_banner.dart';
 import '../usecase/load_signals_feed_usecase.dart';
 import '../viewmodel/feed_viewmodel.dart';
 import 'widgets/eps_trade_card.dart';
 
-/// Live NIFTY/SENSEX signals from Nexora's EMA Pivot rule.
+/// Live NIFTY/SENSEX signals from Nexora's EMA Pivot rule, read through
+/// nexora-backend (the only place the vendor's API key is allowed to live).
 class FeedView extends StatelessWidget {
-  const FeedView({super.key, this.configured = EpsSignalsConfig.isConfigured});
-
-  /// Overridable for tests; defaults to whether a signals proxy URL was
-  /// baked in at build time (see [EpsSignalsConfig]).
-  final bool configured;
+  const FeedView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    if (!configured) return const _FeedNotConfigured();
-    return ChangeNotifierProvider(
-      // Eager: FeedViewModel starts its poll and ticker as soon as the tab
-      // exists, not only once something reads it — lazy creation left a
-      // provider never materialized if torn down before a first read, which
-      // crashed on dispose (provider#tries to dispose a null value).
-      lazy: false,
-      create: (_) => FeedViewModel(sl<LoadSignalsFeedUseCase>()),
-      child: const _FeedBody(),
-    );
-  }
-}
-
-class _FeedNotConfigured extends StatelessWidget {
-  const _FeedNotConfigured();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text('Signals', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 16),
-        InfoBanner(
-          text: 'The signals feed isn\'t set up yet. Deploy proxy/cloudflare-worker with an EPS_API_KEY secret, '
-              'then build the app with --dart-define=EPS_SIGNALS_PROXY_URL=https://your-worker.workers.dev '
-              '(see proxy/cloudflare-worker/README.md).',
-          color: theme.colorScheme.secondaryContainer,
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => ChangeNotifierProvider(
+        // Eager: FeedViewModel starts its poll and ticker as soon as the tab
+        // exists, not only once something reads it — lazy creation left a
+        // provider never materialized if torn down before a first read, which
+        // crashed on dispose (provider#tries to dispose a null value).
+        lazy: false,
+        create: (_) => FeedViewModel(sl<LoadSignalsFeedUseCase>()),
+        child: const _FeedBody(),
+      );
 }
 
 class _FeedBody extends StatelessWidget {

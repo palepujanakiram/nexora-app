@@ -17,20 +17,12 @@ void main() {
     sl.registerFactory(() => LoadSignalsFeedUseCase(repo));
   });
 
-  Future<void> pumpView(WidgetTester tester, {bool configured = true}) async {
+  Future<void> pumpView(WidgetTester tester) async {
     tester.view.physicalSize = const Size(800, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: FeedView(configured: configured))));
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: FeedView())));
   }
-
-  testWidgets('not configured shows setup instructions and never calls the repository', (tester) async {
-    await pumpView(tester, configured: false);
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('isn\'t set up yet'), findsOneWidget);
-    expect(repo.calls, 0);
-  });
 
   testWidgets('always shows the "not investment advice" disclaimer, even while empty', (tester) async {
     await pumpView(tester);
