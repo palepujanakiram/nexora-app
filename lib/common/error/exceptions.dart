@@ -28,3 +28,11 @@ class ServerApiException implements Exception {
   @override
   String toString() => message;
 }
+
+/// Thrown when the EMA Pivot signals proxy can't be reached or refuses a request.
+class EpsSignalsException implements Exception {
+  EpsSignalsException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}

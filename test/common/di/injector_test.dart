@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/data/repositories/account_repository_impl.dart';
 import 'package:nexora_app/common/data/repositories/activity_repository_impl.dart';
 import 'package:nexora_app/common/data/repositories/broker_repository_impl.dart';
+import 'package:nexora_app/common/data/repositories/eps_signals_repository_impl.dart';
 import 'package:nexora_app/common/data/repositories/proxy_repository_impl.dart';
 import 'package:nexora_app/common/data/repositories/settings_repository_impl.dart';
 import 'package:http/http.dart' as http;
@@ -29,6 +30,7 @@ import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/repositories/account_repository.dart';
 import 'package:nexora_app/common/domain/repositories/activity_repository.dart';
 import 'package:nexora_app/common/domain/repositories/broker_repository.dart';
+import 'package:nexora_app/common/domain/repositories/eps_signals_repository.dart';
 import 'package:nexora_app/common/domain/repositories/proxy_repository.dart';
 import 'package:nexora_app/common/domain/repositories/settings_repository.dart';
 import 'package:nexora_app/common/domain/usecases/watch_accounts_usecase.dart';
@@ -41,6 +43,7 @@ import 'package:nexora_app/screens/accounts/usecase/set_access_token_usecase.dar
 import 'package:nexora_app/screens/accounts/usecase/toggle_account_enabled_usecase.dart';
 import 'package:nexora_app/screens/activity/usecase/clear_activity_usecase.dart';
 import 'package:nexora_app/screens/activity/usecase/watch_activity_usecase.dart';
+import 'package:nexora_app/screens/feed/usecase/load_signals_feed_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_proxy_worker_script_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/test_proxy_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/update_settings_usecase.dart';
@@ -70,6 +73,7 @@ void main() {
     expect(sl<ActivityRepository>(), isA<ActivityRepositoryImpl>());
     expect(sl<BrokerRepository>(), isA<BrokerRepositoryImpl>());
     expect(sl<ProxyRepository>(), isA<ProxyRepositoryImpl>());
+    expect(sl<EpsSignalsRepository>(), isA<EpsSignalsRepositoryImpl>());
     expect(identical(sl<SettingsRepository>(), sl<SettingsRepository>()), isTrue);
 
     expect(sl<SettingsRepository>().current.themeColor, ThemeColor.indigo);
@@ -93,6 +97,7 @@ void main() {
       () => sl<DeleteAccountUseCase>(),
       () => sl<WatchActivityUseCase>(),
       () => sl<ClearActivityUseCase>(),
+      () => sl<LoadSignalsFeedUseCase>(),
       () => sl<UpdateSettingsUseCase>(),
       () => sl<GetProxyWorkerScriptUseCase>(),
       () => sl<TestProxyUseCase>(),

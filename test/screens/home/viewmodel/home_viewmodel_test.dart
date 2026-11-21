@@ -3,13 +3,13 @@ import 'package:nexora_app/screens/home/model/home_tab.dart';
 import 'package:nexora_app/screens/home/viewmodel/home_viewmodel.dart';
 
 void main() {
-  test('starts on Signal and notifies only on an actual change', () {
+  test('starts on the Signals feed and notifies only on an actual change', () {
     final vm = HomeViewModel();
     var notified = 0;
     vm.addListener(() => notified++);
 
-    expect(vm.tab, HomeTab.signal);
-    vm.select(HomeTab.signal);
+    expect(vm.tab, HomeTab.feed);
+    vm.select(HomeTab.feed);
     expect(notified, 0);
 
     vm.select(HomeTab.activity);

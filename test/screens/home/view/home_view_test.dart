@@ -11,6 +11,8 @@ import 'package:nexora_app/screens/accounts/view/accounts_view.dart';
 import 'package:nexora_app/screens/activity/usecase/clear_activity_usecase.dart';
 import 'package:nexora_app/screens/activity/usecase/watch_activity_usecase.dart';
 import 'package:nexora_app/screens/activity/view/activity_view.dart';
+import 'package:nexora_app/screens/feed/usecase/load_signals_feed_usecase.dart';
+import 'package:nexora_app/screens/feed/view/feed_view.dart';
 import 'package:nexora_app/screens/home/model/home_tab.dart';
 import 'package:nexora_app/screens/home/view/home_view.dart';
 import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
@@ -59,9 +61,11 @@ void main() {
     final broker = FakeBrokerRepository();
     final proxy = _FakeProxyRepository();
     final server = FakeServerRepository();
+    final signals = FakeEpsSignalsRepository();
     Future<void> noSwitch(_) async {}
     sl
       ..reset()
+      ..registerFactory(() => LoadSignalsFeedUseCase(signals))
       ..registerFactory(() => SyncFromServerUseCase([accounts, activity]))
       ..registerFactory(() => WatchServerUseCase(server))
       ..registerFactory(() => SignOutUseCase(server, noSwitch))
@@ -88,21 +92,22 @@ void main() {
 
   int stackIndex(WidgetTester tester) => tester.widget<IndexedStack>(find.byType(IndexedStack)).index!;
 
-  testWidgets('builds all four tabs and starts on Signal', (tester) async {
+  testWidgets('builds all five tabs and starts on Signals', (tester) async {
     await pumpView(tester);
 
     final nav = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(nav.selectedIndex, 0);
-    expect(nav.destinations, hasLength(4));
+    expect(nav.destinations, hasLength(5));
     for (final t in HomeTab.values) {
       expect(find.descendant(of: find.byType(NavigationBar), matching: find.text(t.label)), findsOneWidget);
     }
     expect(stackIndex(tester), 0);
-    expect(find.byType(SignalView), findsOneWidget);
+    expect(find.byType(FeedView), findsOneWidget);
+    expect(find.byType(SignalView, skipOffstage: false), findsOneWidget);
     expect(find.byType(AccountsView, skipOffstage: false), findsOneWidget);
     expect(find.byType(ActivityView, skipOffstage: false), findsOneWidget);
     expect(find.byType(SettingsView, skipOffstage: false), findsOneWidget);
-    expect(find.byIcon(Icons.bolt), findsOneWidget, reason: 'selected icon for Signal');
+    expect(find.byIcon(Icons.show_chart), findsOneWidget, reason: 'selected icon for Signals');
   });
 
   testWidgets('tapping destinations switches the visible tab', (tester) async {
@@ -111,25 +116,29 @@ void main() {
 
     await tester.tap(dest('Accounts'));
     await tester.pumpAndSettle();
-    expect(stackIndex(tester), 1);
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 1);
+    expect(stackIndex(tester), 2);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
     expect(find.text('Broker accounts'), findsOneWidget);
     expect(find.byIcon(Icons.key), findsOneWidget);
 
     await tester.tap(dest('Activity'));
     await tester.pumpAndSettle();
-    expect(stackIndex(tester), 2);
+    expect(stackIndex(tester), 3);
     expect(find.text('Executed signals will appear here.'), findsOneWidget);
 
     await tester.tap(dest('Settings'));
     await tester.pumpAndSettle();
-    expect(stackIndex(tester), 3);
+    expect(stackIndex(tester), 4);
     expect(find.byIcon(Icons.tune), findsOneWidget);
 
     await tester.tap(dest('Signal'));
     await tester.pumpAndSettle();
-    expect(stackIndex(tester), 0);
+    expect(stackIndex(tester), 1);
     expect(find.text('Broker accounts'), findsNothing);
+
+    await tester.tap(dest('Signals'));
+    await tester.pumpAndSettle();
+    expect(stackIndex(tester), 0);
   });
 
   testWidgets('shows a failed server sync with Retry, and clears it once it works', (tester) async {
@@ -143,7 +152,7 @@ void main() {
     flaky.error = null;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    expect(find.byType(InfoBanner), findsNothing);
+    expect(find.text('Couldn\'t load from the server: Exception: offline'), findsNothing);
     expect(flaky.calls, 2);
   });
 
@@ -153,11 +162,15 @@ void main() {
       ..unregister<SyncFromServerUseCase>()
       ..registerFactory(() => SyncFromServerUseCase([flaky]));
     await pumpView(tester);
-    final before = Provider.of<SignalViewModel>(tester.element(find.byType(ListView).first), listen: false);
+    Finder signalField() => find.descendant(
+          of: find.byType(SignalView, skipOffstage: false),
+          matching: find.byType(TextField, skipOffstage: false),
+        );
+    final before = Provider.of<SignalViewModel>(tester.element(signalField().first), listen: false);
 
     dataGeneration.value++;
     await tester.pumpAndSettle();
-    final after = Provider.of<SignalViewModel>(tester.element(find.byType(ListView).first), listen: false);
+    final after = Provider.of<SignalViewModel>(tester.element(signalField().first), listen: false);
     expect(identical(before, after), isFalse, reason: 'view models are rebuilt on the new repositories');
     expect(flaky.calls, 2);
   });

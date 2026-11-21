@@ -13,7 +13,7 @@ class HomeViewModel extends ChangeNotifier {
 
   final Future<String?> Function()? _sync;
 
-  HomeTab _tab = HomeTab.signal;
+  HomeTab _tab = HomeTab.feed;
   HomeTab get tab => _tab;
 
   String? _syncError;

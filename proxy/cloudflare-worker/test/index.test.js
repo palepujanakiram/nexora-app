@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-import worker, { isOriginAllowed, parseTarget, isOrderRequest } from '../src/index.js';
+import worker, { isOriginAllowed, parseTarget, isOrderRequest, handleSignals } from '../src/index.js';
 
 const env = { ALLOWED_ORIGINS: 'http://localhost:*,https://app.example.com', ALLOW_ORDERS: 'false' };
 const PROXY = 'https://proxy.example.workers.dev/';
@@ -144,4 +144,47 @@ test('/health reports origin and order status', async () => {
   assert.equal(body.originAllowed, false);
   assert.equal(bad.headers.get('Access-Control-Allow-Origin'), 'https://other.app');
   assert.equal(upstreamCalls.length, 0);
+});
+
+test('/signals forwards to the eps-api with the server-side key, allowed params only, open CORS', async () => {
+  const res = await worker.fetch(
+    req('signals?symbols=NIFTY&tfs=30m&history=10&evil=1', { origin: null }),
+    { EPS_API_KEY: 'server-secret' },
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+  const [call] = upstreamCalls;
+  const target = new URL(call.url);
+  assert.equal(`${target.origin}${target.pathname}`, 'https://zxrzvywkyhyssajdkdpy.supabase.co/functions/v1/eps-api');
+  assert.equal(target.searchParams.get('symbols'), 'NIFTY');
+  assert.equal(target.searchParams.get('tfs'), '30m');
+  assert.equal(target.searchParams.get('history'), '10');
+  assert.equal(target.searchParams.has('evil'), false);
+  assert.equal(call.init.headers['x-api-key'], 'server-secret');
+});
+
+test('/signals never leaks the vendor key: refuses when EPS_API_KEY is unset', async () => {
+  const res = await worker.fetch(req('signals'), {});
+  assert.equal(res.status, 500);
+  assert.match((await res.json()).message, /EPS_API_KEY is not configured/);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test('/signals supports CORS preflight and rejects non-GET methods', async () => {
+  const preflight = await handleSignals(req('signals', { method: 'OPTIONS' }), { EPS_API_KEY: 'k' });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), '*');
+
+  const posted = await handleSignals(req('signals', { method: 'POST' }), { EPS_API_KEY: 'k' });
+  assert.equal(posted.status, 405);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test('/signals reports an upstream failure without leaking it as a 403/CORS error', async () => {
+  globalThis.fetch = async () => {
+    throw new Error('network down');
+  };
+  const res = await handleSignals(req('signals'), { EPS_API_KEY: 'k' });
+  assert.equal(res.status, 502);
+  assert.match((await res.json()).message, /Couldn't reach the signals service/);
 });

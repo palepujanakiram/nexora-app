@@ -15,6 +15,7 @@ import '../../screens/accounts/usecase/set_access_token_usecase.dart';
 import '../../screens/accounts/usecase/toggle_account_enabled_usecase.dart';
 import '../../screens/activity/usecase/clear_activity_usecase.dart';
 import '../../screens/activity/usecase/watch_activity_usecase.dart';
+import '../../screens/feed/usecase/load_signals_feed_usecase.dart';
 import '../../screens/login/usecase/get_sign_in_notice_usecase.dart';
 import '../../screens/login/usecase/send_code_usecase.dart';
 import '../../screens/login/usecase/sign_in_usecase.dart';
@@ -30,9 +31,11 @@ import '../../screens/signal/usecase/execute_signal_usecase.dart';
 import '../../screens/signal/usecase/parse_signal_usecase.dart';
 import '../data/datasources/local/preferences_datasource.dart';
 import '../data/datasources/local/secure_storage_datasource.dart';
+import '../data/datasources/remote/eps_signals_api.dart';
 import '../data/repositories/account_repository_impl.dart';
 import '../data/repositories/activity_repository_impl.dart';
 import '../data/repositories/broker_repository_impl.dart';
+import '../data/repositories/eps_signals_repository_impl.dart';
 import '../data/repositories/proxy_repository_impl.dart';
 import '../data/repositories/server/server_account_repository.dart';
 import '../data/repositories/server/server_activity_repository.dart';
@@ -40,9 +43,11 @@ import '../data/repositories/server/server_broker_repository.dart';
 import '../data/repositories/server/server_signal_execution_repository.dart';
 import '../data/repositories/server_repository_impl.dart';
 import '../data/repositories/settings_repository_impl.dart';
+import '../domain/entities/eps_signals_config.dart';
 import '../domain/repositories/account_repository.dart';
 import '../domain/repositories/activity_repository.dart';
 import '../domain/repositories/broker_repository.dart';
+import '../domain/repositories/eps_signals_repository.dart';
 import '../domain/repositories/proxy_repository.dart';
 import '../domain/repositories/server_repository.dart';
 import '../domain/repositories/settings_repository.dart';
@@ -77,7 +82,10 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
   sl
     ..registerSingleton<SettingsRepository>(settings)
     ..registerSingleton<ServerRepository>(server)
-    ..registerSingleton<ProxyRepository>(ProxyRepositoryImpl(client));
+    ..registerSingleton<ProxyRepository>(ProxyRepositoryImpl(client))
+    ..registerSingleton<EpsSignalsRepository>(
+      EpsSignalsRepositoryImpl(EpsSignalsApi(client, proxyBaseUrl: EpsSignalsConfig.proxyUrl)),
+    );
 
   /// Accounts, broker logins, orders and activity live on the server while
   /// signed in. Signed out, the device-only repositories stand in; the login
@@ -160,6 +168,9 @@ Future<void> configureDependencies({http.Client? httpClient}) async {
   sl
     ..registerFactory(() => WatchActivityUseCase(sl()))
     ..registerFactory(() => ClearActivityUseCase(sl()));
+
+  // Feed screen
+  sl.registerFactory(() => LoadSignalsFeedUseCase(sl()));
 
   // Settings screen
   sl

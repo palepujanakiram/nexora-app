@@ -9,3 +9,8 @@ ALLOWED_ORIGINS = "http://localhost:*,http://127.0.0.1:*"
 
 # Keep "false" for testing: blocks placing/modifying/cancelling orders and GTTs.
 ALLOW_ORDERS = "false"
+
+# The Feed tab's /signals route needs EPS_API_KEY (the vendor's x-api-key for
+# Nexora's EMA Pivot signals API). Set it as a secret, NOT here, so it's
+# encrypted and never committed to source control:
+#   npx wrangler secret put EPS_API_KEY

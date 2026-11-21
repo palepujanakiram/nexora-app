@@ -19,6 +19,7 @@ into orders on any number of **Zerodha (Kite Connect)**, **Upstox** and **Groww*
 
 ## Features
 
+- **Live signals feed:** read-only NIFTY/SENSEX trade signals from Nexora's EMA Pivot rule, polled once a minute, shown as a tool reading rather than advice.
 - **Many accounts, three brokers:** add any number of API keys per broker and pick which accounts each signal runs on.
 - **Signal parsing:** paste a signal in plain text; the app shows exactly what it understood before anything is sent.
 - **Paper mode by default:** new accounts simulate orders. When logged in, paper trades still look up the real contract and lot size.
@@ -44,7 +45,19 @@ Products map to NRML (carry forward) or MIS (intraday) on Zerodha and Groww, and
 
 ## How it works
 
-The app has four tabs: **Signal**, **Accounts**, **Activity** and **Settings**. Screenshots are from the web build with demo accounts in paper mode.
+The app has five tabs: **Signals**, **Signal**, **Accounts**, **Activity** and **Settings**. Screenshots are from the web build with demo accounts in paper mode.
+
+### 0. Signals (the first tab): live NIFTY/SENSEX feed
+
+Read-only trade signals from Nexora's EMA Pivot rule — the same engine that sends the Telegram alerts, shown as a tool reading, not investment advice. Each card shows a trade's side (BUY CE/PE), entry, stop loss (and how many times it has trailed), both targets with hit flags, status (`active`/`t1`/`t2`/`stopped`/`invalidated`) and running points/R once it has moved. The feed polls once a minute (the API caches for 60 seconds, so anything faster gains nothing) and can be pulled to refresh.
+
+The vendor's API key must stay server-side, so the Feed tab calls [proxy/cloudflare-worker](proxy/cloudflare-worker/README.md)'s `/signals` route instead of the vendor's API directly — see that folder's **Signals proxy (Feed tab)** section to deploy it and set `EPS_API_KEY`. Point the app at your deployed Worker with:
+
+```bash
+flutter build web --dart-define=EPS_SIGNALS_PROXY_URL=https://nexora-cors-proxy.<your-subdomain>.workers.dev
+```
+
+Without it, the tab shows setup instructions instead of calling out. Only the measured-profitable rows the vendor recommends are shown: both symbols, the 15m/30m/1H timeframes (never 3m/5m, which the vendor's own testing shows lose money) and no option premium signals (which can't be tested at all).
 
 ### 1. Add your broker accounts
 
@@ -187,18 +200,18 @@ lib/
   common/                   code shared by every screen
     di/injector.dart        get_it wiring: data sources → repositories → use cases
     domain/                 pure Dart, no Flutter or HTTP
-      entities/             TradeSignal, BrokerAccount, AppSettings, TradePlan, ExecutionResult, ProxyHealth
-      repositories/         abstract interfaces (accounts, settings, activity, broker, proxy)
+      entities/             TradeSignal, BrokerAccount, AppSettings, TradePlan, ExecutionResult, ProxyHealth, EpsFeed
+      repositories/         abstract interfaces (accounts, settings, activity, broker, proxy, EPS signals)
       services/             SignalParser, TradePricing
       usecases/             shared use cases (watch accounts, watch settings)
     data/
       models/               JSON mappers for entities
       datasources/local/    secure storage (keys/tokens), shared preferences
-      datasources/remote/   Zerodha (Kite Connect), Upstox and Groww APIs, shared HTTP helpers
+      datasources/remote/   Zerodha (Kite Connect), Upstox and Groww APIs, EPS signals, shared HTTP helpers
       repositories/         repository implementations (in-memory cache + change stream; broker routing; proxy check)
     presentation/           shared widgets and theme
     error/  utils/
-  screens/<screen>/         signal, accounts, account_edit, activity, settings, home
+  screens/<screen>/         feed, signal, accounts, account_edit, activity, settings, home
     view/                   widgets only; reads state from the view model
     viewmodel/              ChangeNotifier; calls use cases, exposes state
     model/                  the screen's UI state / form model
@@ -221,7 +234,7 @@ CLAUDE.md                   project conventions, including the mandatory test co
 
 ## Tests and coverage
 
-Every change needs tests, and line coverage of `lib/` must stay at or above **95%** (see [CLAUDE.md](CLAUDE.md)). Currently 333 Flutter tests at 99.86% line coverage, and 11 worker tests at 100%.
+Every change needs tests, and line coverage of `lib/` must stay at or above **95%** (see [CLAUDE.md](CLAUDE.md)); the Cloudflare Worker (`proxy/cloudflare-worker`) keeps its own 95%+ coverage the same way. Run `dart run tool/coverage.dart` and `npm run coverage` (in `proxy/cloudflare-worker`) to check both.
 
 ```bash
 flutter analyze                                  # must report no issues
