@@ -18,18 +18,21 @@ void main() {
     const withData = FeedState(
       loading: false,
       feed: EpsFeed(symbols: [
-        EpsSymbolSignals(symbol: 'NIFTY', intervals: [
-          EpsInterval(
+        EpsSymbolSignals(symbol: 'NIFTY', ruleTimeframes: [
+          EpsRuleTimeframe(
+            rule: EpsRule.ep,
             timeframe: '30m',
-            liveTrade: EpsTrade(
+            live: EpsTrade(
               id: 't1',
+              rule: EpsRule.ep,
               side: 'BUY CE',
               entry: 100,
               stop: 90,
               initialStop: 90,
               riskPoints: 10,
               targets: [],
-              status: EpsTradeStatus.active,
+              status: 'active',
+              open: true,
             ),
           ),
         ]),

@@ -107,24 +107,28 @@ class _FeedBody extends StatelessWidget {
 
   List<Widget> _symbolSection(EpsSymbolSignals symbol) => [
         const SizedBox(height: 20),
-        Text(symbol.symbol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        for (final interval in symbol.intervals) ..._intervalSection(symbol.symbol, interval),
+        Text(
+          symbol.price == null ? symbol.symbol : '${symbol.symbol}  ${symbol.price!.toStringAsFixed(2)}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        for (final rtf in symbol.ruleTimeframes) ..._ruleTimeframeSection(symbol.symbol, rtf),
       ];
 
-  List<Widget> _intervalSection(String symbolName, EpsInterval interval) {
-    final label = '$symbolName · ${interval.timeframe}';
+  List<Widget> _ruleTimeframeSection(String symbolName, EpsRuleTimeframe rtf) {
+    final rule = rtf.rule == EpsRule.ep ? 'EP' : 'EW';
+    final label = '$symbolName · $rule · ${rtf.timeframe}';
     return [
       Padding(
         padding: const EdgeInsets.only(top: 12, left: 4),
-        child: Text(
-          interval.bias == null ? interval.timeframe : '${interval.timeframe} · Bias: ${interval.bias}',
-        ),
+        child: Text(rtf.bias == null ? label : '$label · Bias: ${rtf.bias}'),
       ),
-      if (interval.liveTrade != null)
-        EpsTradeCard(label: label, trade: interval.liveTrade!)
+      if (rtf.live != null)
+        EpsTradeCard(label: label, trade: rtf.live!)
+      else if (rtf.pending != null)
+        EpsTradeCard(label: '$label (pending)', trade: rtf.pending!)
       else
         const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No live trade.')),
-      for (final h in interval.history) EpsTradeCard(label: label, trade: h),
+      for (final h in rtf.history) EpsTradeCard(label: label, trade: h),
     ];
   }
 }

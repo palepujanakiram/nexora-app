@@ -40,47 +40,69 @@ void main() {
     expect(find.text('No live NIFTY/SENSEX signals right now.'), findsOneWidget);
   });
 
-  testWidgets('lists symbols, intervals, live trades and history', (tester) async {
+  testWidgets('lists symbols, rules/timeframes, live trades, pending setups and history', (tester) async {
     repo.toReturn = const EpsFeed(symbols: [
-      EpsSymbolSignals(symbol: 'NIFTY', intervals: [
-        EpsInterval(
+      EpsSymbolSignals(symbol: 'NIFTY', ruleTimeframes: [
+        EpsRuleTimeframe(
+          rule: EpsRule.ep,
           timeframe: '30m',
-          bias: 'bullish',
-          liveTrade: EpsTrade(
+          bias: 'BULLISH',
+          live: EpsTrade(
             id: 'live-1',
+            rule: EpsRule.ep,
             side: 'BUY CE',
             entry: 100,
             stop: 90,
             initialStop: 90,
             riskPoints: 10,
             targets: [],
-            status: EpsTradeStatus.active,
+            status: 'active',
+            open: true,
           ),
           history: [
             EpsTrade(
               id: 'hist-1',
+              rule: EpsRule.ep,
               side: 'BUY PE',
               entry: 50,
               stop: 60,
               initialStop: 60,
               riskPoints: 10,
               targets: [],
-              status: EpsTradeStatus.stopped,
+              status: 'stopped',
+              open: false,
             ),
           ],
         ),
+        EpsRuleTimeframe(
+          rule: EpsRule.ew,
+          timeframe: '5m',
+          pending: EpsTrade(
+            id: 'pending-1',
+            rule: EpsRule.ew,
+            side: 'BUY CE',
+            entry: 100,
+            stop: 90,
+            initialStop: 90,
+            riskPoints: 10,
+            targets: [],
+            status: 'active',
+            open: true,
+          ),
+        ),
       ]),
-      EpsSymbolSignals(symbol: 'SENSEX', intervals: [EpsInterval(timeframe: '1H')]),
+      EpsSymbolSignals(symbol: 'SENSEX', ruleTimeframes: [EpsRuleTimeframe(rule: EpsRule.ep, timeframe: '1H')]),
     ]);
     await pumpView(tester);
     await tester.pumpAndSettle();
 
     expect(find.text('NIFTY'), findsOneWidget);
     expect(find.text('SENSEX'), findsOneWidget);
-    expect(find.text('30m · Bias: bullish'), findsOneWidget);
-    expect(find.text('1H'), findsOneWidget, reason: 'no bias on the SENSEX interval');
-    expect(find.text('No live trade.'), findsOneWidget, reason: 'SENSEX 1H has none');
-    expect(find.byType(EpsTradeCard), findsNWidgets(2));
+    expect(find.text('NIFTY · EP · 30m · Bias: BULLISH'), findsOneWidget);
+    expect(find.text('NIFTY · EW · 5m'), findsOneWidget);
+    expect(find.text('SENSEX · EP · 1H'), findsOneWidget, reason: 'no bias on the SENSEX rule/timeframe');
+    expect(find.text('No live trade.'), findsOneWidget, reason: 'SENSEX EP 1H has none');
+    expect(find.byType(EpsTradeCard), findsNWidgets(3), reason: 'NIFTY live + history, and the EW pending setup');
     expect(find.textContaining('Updated '), findsOneWidget);
   });
 

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../common/domain/entities/eps_signal.dart';
 
-/// One EMA Pivot trade (live or from history).
+/// One EMA Pivot/EW trade (live, pending or from history).
 class EpsTradeCard extends StatelessWidget {
   const EpsTradeCard({super.key, required this.label, required this.trade});
 
-  /// e.g. 'NIFTY · 30m'.
+  /// e.g. 'NIFTY · EP · 30m'.
   final String label;
   final EpsTrade trade;
 
@@ -15,12 +15,9 @@ class EpsTradeCard extends StatelessWidget {
     final theme = Theme.of(context);
     final t = trade;
     final isCall = t.side.contains('CE');
-    final statusColor = switch (t.status) {
-      EpsTradeStatus.active => theme.colorScheme.primary,
-      EpsTradeStatus.t1 || EpsTradeStatus.t2 => Colors.green,
-      EpsTradeStatus.stopped => theme.colorScheme.error,
-      EpsTradeStatus.invalidated => Colors.grey,
-    };
+    final statusColor = !t.open
+        ? ((t.points ?? 0) >= 0 ? Colors.green : theme.colorScheme.error)
+        : theme.colorScheme.primary;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -37,12 +34,16 @@ class EpsTradeCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(child: Text(label, style: theme.textTheme.titleMedium)),
                 Chip(
-                  label: Text(t.status.name.toUpperCase()),
+                  label: Text(t.status.toUpperCase()),
                   backgroundColor: statusColor.withValues(alpha: 0.15),
                   labelStyle: TextStyle(color: statusColor),
                 ),
               ],
             ),
+            if (t.wave != null) ...[
+              const SizedBox(height: 4),
+              Text('${t.wave}${t.fitPercent != null ? ' · ${t.fitPercent}% fit' : ''}', style: theme.textTheme.bodySmall),
+            ],
             const SizedBox(height: 8),
             _row('Entry', t.entry.toStringAsFixed(2)),
             _row(
@@ -55,7 +56,10 @@ class EpsTradeCard extends StatelessWidget {
               'Targets',
               t.targets.isEmpty
                   ? '—'
-                  : t.targets.map((g) => g.hit ? '${g.price.toStringAsFixed(2)} ✓' : g.price.toStringAsFixed(2)).join('  '),
+                  : t.targets.map((g) {
+                      final price = g.price.toStringAsFixed(2);
+                      return g.hit ? '${g.name} $price ✓' : '${g.name} $price';
+                    }).join('  '),
             ),
             if (t.points != null) _row('P/L', '${t.points!.toStringAsFixed(2)} pts${t.r != null ? ' (${t.r!.toStringAsFixed(2)}R)' : ''}'),
           ],
