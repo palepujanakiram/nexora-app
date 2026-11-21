@@ -19,6 +19,7 @@ into orders on any number of **Zerodha (Kite Connect)**, **Upstox** and **Groww*
 
 ## Features
 
+- **Live signals feed:** read-only NIFTY/SENSEX trade signals from Nexora's EMA Pivot rule, polled once a minute, shown as a tool reading rather than advice.
 - **Many accounts, three brokers:** add any number of API keys per broker and pick which accounts each signal runs on.
 - **Signal parsing:** paste a signal in plain text; the app shows exactly what it understood before anything is sent.
 - **Paper mode by default:** new accounts simulate orders. When logged in, paper trades still look up the real contract and lot size.
@@ -44,7 +45,13 @@ Products map to NRML (carry forward) or MIS (intraday) on Zerodha and Groww, and
 
 ## How it works
 
-The app has four tabs: **Signal**, **Accounts**, **Activity** and **Settings**. Screenshots are from the web build with demo accounts in paper mode.
+The app has five tabs: **Signals**, **Signal**, **Accounts**, **Activity** and **Settings**. Screenshots are from the web build with demo accounts in paper mode.
+
+### 0. Signals (the first tab): live NIFTY/SENSEX feed
+
+Read-only trade signals from Nexora's EMA Pivot (EP) and Elliott Wave (EW) rules — the same engine that sends the Telegram alerts, shown as a tool reading, not investment advice. Each card shows a trade's side (BUY CE/PE), entry, stop loss (and how many times it has trailed), named targets with hit flags, its status and running points/R once it has moved. The feed polls once a minute (the API caches for 60 seconds, so anything faster gains nothing) and can be pulled to refresh.
+
+The vendor's API key must stay server-side, so the Feed tab calls nexora-backend's `GET /signals/feed` — the same authenticated server every other screen already uses — instead of the vendor's API directly. The app sends no key of its own; the server adds it from its own `EPS_API_KEY` setting. Only the measured-profitable rows the vendor's own testing recommends are returned: both symbols, the 15m/30m/1H timeframes (never 3m/5m) and no option premium signals. Since this goes through the signed-in server, the Feed tab only has data once you're signed in — same as every other tab.
 
 ### 1. Add your broker accounts
 
@@ -123,6 +130,7 @@ Each platform's build signs in as its own client on the server, which sets how l
 Once signed in:
 
 - **Signal**, **Accounts** and **Activity** run on the server: it places the orders and keeps them for all devices. The app reloads accounts and activity when you switch tabs or come back to the app.
+- **Signals (the Feed tab):** the server proxies Nexora's EMA Pivot signals API, adding the vendor's key from its own `EPS_API_KEY` setting — the app never holds that key.
 - **Orders:** the server places a LIMIT entry on each ticked account (accounts with the same lots and product go in one order) and reports each account's result: open, filled, rejected with the broker's reason, or *not confirmed yet* while it checks with the broker. It places the entry only: set the stop loss and target in the broker's app. Its risk checks (market hours, daily order cap, order value, kill switch) can refuse an order before it reaches any broker.
 - **Accounts:** the server keeps the broker, name, keys and paper/live mode. Lots, product, **Use by default** and the Upstox redirect URI are kept on each device. To change an account's name or keys, delete it and add it again. Accounts at brokers this app doesn't support yet (Angel One) aren't shown.
 - **Activity** lists the server's orders, one line per account. **Clear** hides the older ones on this device; the server keeps every order.
@@ -187,18 +195,18 @@ lib/
   common/                   code shared by every screen
     di/injector.dart        get_it wiring: data sources → repositories → use cases
     domain/                 pure Dart, no Flutter or HTTP
-      entities/             TradeSignal, BrokerAccount, AppSettings, TradePlan, ExecutionResult, ProxyHealth
-      repositories/         abstract interfaces (accounts, settings, activity, broker, proxy)
+      entities/             TradeSignal, BrokerAccount, AppSettings, TradePlan, ExecutionResult, ProxyHealth, EpsFeed
+      repositories/         abstract interfaces (accounts, settings, activity, broker, proxy, EPS signals)
       services/             SignalParser, TradePricing
       usecases/             shared use cases (watch accounts, watch settings)
     data/
       models/               JSON mappers for entities
       datasources/local/    secure storage (keys/tokens), shared preferences
       datasources/remote/   Zerodha (Kite Connect), Upstox and Groww APIs, shared HTTP helpers
-      repositories/         repository implementations (in-memory cache + change stream; broker routing; proxy check)
+      repositories/         repository implementations, and repositories/server/ for the signed-in nexora-backend ones (accounts, activity, broker, signal execution, EPS signals)
     presentation/           shared widgets and theme
     error/  utils/
-  screens/<screen>/         signal, accounts, account_edit, activity, settings, home
+  screens/<screen>/         feed, signal, accounts, account_edit, activity, settings, home
     view/                   widgets only; reads state from the view model
     viewmodel/              ChangeNotifier; calls use cases, exposes state
     model/                  the screen's UI state / form model
@@ -221,7 +229,7 @@ CLAUDE.md                   project conventions, including the mandatory test co
 
 ## Tests and coverage
 
-Every change needs tests, and line coverage of `lib/` must stay at or above **95%** (see [CLAUDE.md](CLAUDE.md)). Currently 333 Flutter tests at 99.86% line coverage, and 11 worker tests at 100%.
+Every change needs tests, and line coverage of `lib/` must stay at or above **95%** (see [CLAUDE.md](CLAUDE.md)); the Cloudflare Worker (`proxy/cloudflare-worker`) keeps its own 95%+ coverage the same way. Run `dart run tool/coverage.dart` and `npm run coverage` (in `proxy/cloudflare-worker`) to check both.
 
 ```bash
 flutter analyze                                  # must report no issues

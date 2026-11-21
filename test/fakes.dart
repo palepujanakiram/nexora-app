@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/entities/broker_account.dart';
+import 'package:nexora_app/common/domain/entities/eps_signal.dart';
 import 'package:nexora_app/common/domain/entities/execution_result.dart';
 import 'package:nexora_app/common/domain/entities/server_session.dart';
 import 'package:nexora_app/common/domain/entities/sign_in_code.dart';
@@ -11,6 +12,7 @@ import 'package:nexora_app/common/domain/entities/trade_signal.dart';
 import 'package:nexora_app/common/domain/repositories/account_repository.dart';
 import 'package:nexora_app/common/domain/repositories/activity_repository.dart';
 import 'package:nexora_app/common/domain/repositories/broker_repository.dart';
+import 'package:nexora_app/common/domain/repositories/eps_signals_repository.dart';
 import 'package:nexora_app/common/domain/repositories/server_repository.dart';
 import 'package:nexora_app/common/domain/repositories/settings_repository.dart';
 import 'package:nexora_app/common/error/exceptions.dart';
@@ -197,6 +199,29 @@ class FakeServerRepository implements ServerRepository {
   Future<String> serverIp() async {
     if (failWith != null) throw ServerApiException(failWith!);
     return '203.0.113.7';
+  }
+}
+
+class FakeEpsSignalsRepository implements EpsSignalsRepository {
+  /// What [fetchSignals] returns; thrown instead when set to an [Object]
+  /// that isn't an [EpsFeed].
+  Object toReturn = const EpsFeed();
+  var calls = 0;
+
+  /// When set, each call waits for it, to show what the app does meanwhile.
+  Completer<void>? hold;
+
+  @override
+  Future<EpsFeed> fetchSignals({
+    List<String> symbols = const ['NIFTY', 'SENSEX'],
+    List<String> timeframes = const ['15m', '30m', '1H'],
+    int history = 5,
+  }) async {
+    calls++;
+    await hold?.future;
+    final result = toReturn;
+    if (result is EpsFeed) return result;
+    throw result;
   }
 }
 

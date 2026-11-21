@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/proxy_health.dart';
 import 'package:nexora_app/common/domain/repositories/proxy_repository.dart';
-import 'package:nexora_app/common/domain/services/signal_parser.dart';
 import 'package:nexora_app/common/domain/usecases/watch_accounts_usecase.dart';
 import 'package:nexora_app/common/domain/usecases/watch_settings_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/toggle_account_enabled_usecase.dart';
@@ -11,6 +10,9 @@ import 'package:nexora_app/screens/accounts/view/accounts_view.dart';
 import 'package:nexora_app/screens/activity/usecase/clear_activity_usecase.dart';
 import 'package:nexora_app/screens/activity/usecase/watch_activity_usecase.dart';
 import 'package:nexora_app/screens/activity/view/activity_view.dart';
+import 'package:nexora_app/screens/feed/usecase/load_signals_feed_usecase.dart';
+import 'package:nexora_app/screens/feed/view/feed_view.dart';
+import 'package:nexora_app/screens/feed/viewmodel/feed_viewmodel.dart';
 import 'package:nexora_app/screens/home/model/home_tab.dart';
 import 'package:nexora_app/screens/home/view/home_view.dart';
 import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
@@ -21,13 +23,8 @@ import 'package:nexora_app/screens/settings/usecase/test_proxy_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/update_settings_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
 import 'package:nexora_app/screens/settings/view/settings_view.dart';
-import 'package:nexora_app/screens/signal/usecase/execute_signal_usecase.dart';
-import 'package:nexora_app/screens/signal/usecase/parse_signal_usecase.dart';
-import 'package:nexora_app/screens/signal/view/signal_view.dart';
 
 import 'package:nexora_app/common/domain/repositories/refreshable.dart';
-import 'package:nexora_app/common/presentation/widgets/info_banner.dart';
-import 'package:nexora_app/screens/signal/viewmodel/signal_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../../fakes.dart';
@@ -56,20 +53,19 @@ void main() {
     final accounts = FakeAccountRepository([testAccount()]);
     final settings = FakeSettingsRepository();
     final activity = FakeActivityRepository();
-    final broker = FakeBrokerRepository();
     final proxy = _FakeProxyRepository();
     final server = FakeServerRepository();
+    final signals = FakeEpsSignalsRepository();
     Future<void> noSwitch(_) async {}
     sl
       ..reset()
+      ..registerFactory(() => LoadSignalsFeedUseCase(signals))
       ..registerFactory(() => SyncFromServerUseCase([accounts, activity]))
       ..registerFactory(() => WatchServerUseCase(server))
       ..registerFactory(() => SignOutUseCase(server, noSwitch))
       ..registerFactory(() => GetServerIpUseCase(server))
       ..registerFactory(() => WatchAccountsUseCase(accounts))
       ..registerFactory(() => WatchSettingsUseCase(settings))
-      ..registerFactory(() => ParseSignalUseCase(SignalParser()))
-      ..registerFactory(() => ExecuteSignalUseCase(broker, accounts, settings, activity))
       ..registerFactory(() => ToggleAccountEnabledUseCase(accounts))
       ..registerFactory(() => WatchActivityUseCase(activity))
       ..registerFactory(() => ClearActivityUseCase(activity))
@@ -88,7 +84,7 @@ void main() {
 
   int stackIndex(WidgetTester tester) => tester.widget<IndexedStack>(find.byType(IndexedStack)).index!;
 
-  testWidgets('builds all four tabs and starts on Signal', (tester) async {
+  testWidgets('builds all four tabs and starts on Signals', (tester) async {
     await pumpView(tester);
 
     final nav = tester.widget<NavigationBar>(find.byType(NavigationBar));
@@ -98,11 +94,11 @@ void main() {
       expect(find.descendant(of: find.byType(NavigationBar), matching: find.text(t.label)), findsOneWidget);
     }
     expect(stackIndex(tester), 0);
-    expect(find.byType(SignalView), findsOneWidget);
+    expect(find.byType(FeedView), findsOneWidget);
     expect(find.byType(AccountsView, skipOffstage: false), findsOneWidget);
     expect(find.byType(ActivityView, skipOffstage: false), findsOneWidget);
     expect(find.byType(SettingsView, skipOffstage: false), findsOneWidget);
-    expect(find.byIcon(Icons.bolt), findsOneWidget, reason: 'selected icon for Signal');
+    expect(find.byIcon(Icons.show_chart), findsOneWidget, reason: 'selected icon for Signals');
   });
 
   testWidgets('tapping destinations switches the visible tab', (tester) async {
@@ -126,7 +122,7 @@ void main() {
     expect(stackIndex(tester), 3);
     expect(find.byIcon(Icons.tune), findsOneWidget);
 
-    await tester.tap(dest('Signal'));
+    await tester.tap(dest('Signals'));
     await tester.pumpAndSettle();
     expect(stackIndex(tester), 0);
     expect(find.text('Broker accounts'), findsNothing);
@@ -143,7 +139,7 @@ void main() {
     flaky.error = null;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    expect(find.byType(InfoBanner), findsNothing);
+    expect(find.text('Couldn\'t load from the server: Exception: offline'), findsNothing);
     expect(flaky.calls, 2);
   });
 
@@ -153,11 +149,11 @@ void main() {
       ..unregister<SyncFromServerUseCase>()
       ..registerFactory(() => SyncFromServerUseCase([flaky]));
     await pumpView(tester);
-    final before = Provider.of<SignalViewModel>(tester.element(find.byType(ListView).first), listen: false);
+    final before = Provider.of<FeedViewModel>(tester.element(find.byType(RefreshIndicator)), listen: false);
 
     dataGeneration.value++;
     await tester.pumpAndSettle();
-    final after = Provider.of<SignalViewModel>(tester.element(find.byType(ListView).first), listen: false);
+    final after = Provider.of<FeedViewModel>(tester.element(find.byType(RefreshIndicator)), listen: false);
     expect(identical(before, after), isFalse, reason: 'view models are rebuilt on the new repositories');
     expect(flaky.calls, 2);
   });

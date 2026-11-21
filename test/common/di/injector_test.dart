@@ -10,6 +10,7 @@ import 'package:http/testing.dart';
 import 'package:nexora_app/common/data/repositories/server/server_account_repository.dart';
 import 'package:nexora_app/common/data/repositories/server/server_activity_repository.dart';
 import 'package:nexora_app/common/data/repositories/server/server_broker_repository.dart';
+import 'package:nexora_app/common/data/repositories/server/server_eps_signals_repository.dart';
 import 'package:nexora_app/common/data/repositories/server/server_signal_execution_repository.dart';
 import 'package:nexora_app/common/data/repositories/server_repository_impl.dart';
 import 'package:nexora_app/common/di/injector.dart';
@@ -29,6 +30,7 @@ import 'package:nexora_app/common/domain/entities/app_settings.dart';
 import 'package:nexora_app/common/domain/repositories/account_repository.dart';
 import 'package:nexora_app/common/domain/repositories/activity_repository.dart';
 import 'package:nexora_app/common/domain/repositories/broker_repository.dart';
+import 'package:nexora_app/common/domain/repositories/eps_signals_repository.dart';
 import 'package:nexora_app/common/domain/repositories/proxy_repository.dart';
 import 'package:nexora_app/common/domain/repositories/settings_repository.dart';
 import 'package:nexora_app/common/domain/usecases/watch_accounts_usecase.dart';
@@ -41,6 +43,7 @@ import 'package:nexora_app/screens/accounts/usecase/set_access_token_usecase.dar
 import 'package:nexora_app/screens/accounts/usecase/toggle_account_enabled_usecase.dart';
 import 'package:nexora_app/screens/activity/usecase/clear_activity_usecase.dart';
 import 'package:nexora_app/screens/activity/usecase/watch_activity_usecase.dart';
+import 'package:nexora_app/screens/feed/usecase/load_signals_feed_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/get_proxy_worker_script_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/test_proxy_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/update_settings_usecase.dart';
@@ -130,6 +133,7 @@ void main() {
     expect(activeSession.value, isNull);
     expect(sl.isRegistered<SignalExecutionRepository>(), isFalse);
     expect(sl<ExecuteSignalUseCase>().remote, isNull);
+    expect(sl.isRegistered<EpsSignalsRepository>(), isFalse);
   });
 
   test('a saved server session puts accounts, logins, orders and activity on the server', () async {
@@ -148,6 +152,8 @@ void main() {
     expect(sl<BrokerRepository>(), isA<ServerBrokerRepository>());
     expect(sl<SignalExecutionRepository>(), isA<ServerSignalExecutionRepository>());
     expect(sl<ExecuteSignalUseCase>().remote, isNotNull);
+    expect(sl<EpsSignalsRepository>(), isA<ServerEpsSignalsRepository>());
+    expect(identical(sl<LoadSignalsFeedUseCase>(), sl<LoadSignalsFeedUseCase>()), isFalse, reason: 'a factory');
     expect(dataGeneration.value, generation + 1);
 
     // Leaving the server brings back what's stored on this device.
@@ -155,6 +161,7 @@ void main() {
     expect(sl<AccountRepository>(), isA<AccountRepositoryImpl>());
     expect(sl<AccountRepository>().current.single.label, 'Mine');
     expect(sl.isRegistered<SignalExecutionRepository>(), isFalse);
+    expect(sl.isRegistered<EpsSignalsRepository>(), isFalse);
     expect(dataGeneration.value, generation + 2);
     expect(activeSession.value, isNull);
 

@@ -15,4 +15,11 @@ void main() {
     expect(e.message, 'HTTP 403: TokenException');
     expect('$e', 'HTTP 403: TokenException');
   });
+
+  test('EpsSignalsException exposes its message', () {
+    final e = EpsSignalsException('Couldn\'t reach the signals feed.');
+    expect(e, isA<Exception>());
+    expect(e.message, 'Couldn\'t reach the signals feed.');
+    expect('$e', 'Couldn\'t reach the signals feed.');
+  });
 }

@@ -6,8 +6,8 @@ import '../../../common/domain/usecases/sync_from_server_usecase.dart';
 import '../../../common/presentation/widgets/info_banner.dart';
 import '../../accounts/view/accounts_view.dart';
 import '../../activity/view/activity_view.dart';
+import '../../feed/view/feed_view.dart';
 import '../../settings/view/settings_view.dart';
-import '../../signal/view/signal_view.dart';
 import '../model/home_tab.dart';
 import '../viewmodel/home_viewmodel.dart';
 
@@ -31,7 +31,7 @@ class _HomeBody extends StatefulWidget {
 
 class _HomeBodyState extends State<_HomeBody> {
   static const _pages = {
-    HomeTab.signal: SignalView(),
+    HomeTab.feed: FeedView(),
     HomeTab.accounts: AccountsView(),
     HomeTab.activity: ActivityView(),
     HomeTab.settings: SettingsView(),
