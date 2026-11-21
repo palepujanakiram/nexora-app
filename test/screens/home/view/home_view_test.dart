@@ -28,7 +28,6 @@ import 'package:nexora_app/screens/signal/usecase/parse_signal_usecase.dart';
 import 'package:nexora_app/screens/signal/view/signal_view.dart';
 
 import 'package:nexora_app/common/domain/repositories/refreshable.dart';
-import 'package:nexora_app/common/presentation/widgets/info_banner.dart';
 import 'package:nexora_app/screens/signal/viewmodel/signal_viewmodel.dart';
 import 'package:provider/provider.dart';
 

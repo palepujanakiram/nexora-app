@@ -11,11 +11,10 @@ import '../../../fakes.dart';
 void main() {
   late FakeEpsSignalsRepository repo;
 
-  setUp(() {
+  setUp(() async {
+    await sl.reset();
     repo = FakeEpsSignalsRepository();
-    sl
-      ..reset()
-      ..registerFactory(() => LoadSignalsFeedUseCase(repo));
+    sl.registerFactory(() => LoadSignalsFeedUseCase(repo));
   });
 
   Future<void> pumpView(WidgetTester tester, {bool configured = true}) async {

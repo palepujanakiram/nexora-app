@@ -22,6 +22,11 @@ class FeedView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!configured) return const _FeedNotConfigured();
     return ChangeNotifierProvider(
+      // Eager: FeedViewModel starts its poll and ticker as soon as the tab
+      // exists, not only once something reads it — lazy creation left a
+      // provider never materialized if torn down before a first read, which
+      // crashed on dispose (provider#tries to dispose a null value).
+      lazy: false,
       create: (_) => FeedViewModel(sl<LoadSignalsFeedUseCase>()),
       child: const _FeedBody(),
     );
