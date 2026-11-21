@@ -155,7 +155,7 @@ flutter build ios             # iOS (bundle ID com.srisarani.nexora, team WR859F
 flutter build web             # web, served from build/web (add its address to the server's CORS_ORIGINS)
 ```
 
-**TestFlight:** `cd ios && bundle exec fastlane beta` runs the checks, builds, signs and uploads the iOS app. One-time setup (App Store Connect app record and API key) is in [docs/testflight.md](docs/testflight.md).
+**TestFlight:** `cd ios && bundle exec fastlane beta` runs the checks, builds, signs and uploads the iOS app. One-time setup (App Store Connect app record and API key) is in [docs/testflight.md](docs/testflight.md). Pushing to `main` can also build and upload automatically via Xcode Cloud — see [docs/xcode-cloud.md](docs/xcode-cloud.md) for the one-time workflow setup in Xcode.
 
 Every build talks to the brokers through nexora-backend, so the web build doesn't need a CORS proxy. The Cloudflare Worker in [proxy/cloudflare-worker](proxy/cloudflare-worker/README.md) is from before sign-in was required. The app no longer offers it.
 
