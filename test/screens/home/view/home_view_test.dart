@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
 import 'package:nexora_app/common/domain/entities/proxy_health.dart';
 import 'package:nexora_app/common/domain/repositories/proxy_repository.dart';
-import 'package:nexora_app/common/domain/services/signal_parser.dart';
 import 'package:nexora_app/common/domain/usecases/watch_accounts_usecase.dart';
 import 'package:nexora_app/common/domain/usecases/watch_settings_usecase.dart';
 import 'package:nexora_app/screens/accounts/usecase/toggle_account_enabled_usecase.dart';
@@ -13,6 +12,7 @@ import 'package:nexora_app/screens/activity/usecase/watch_activity_usecase.dart'
 import 'package:nexora_app/screens/activity/view/activity_view.dart';
 import 'package:nexora_app/screens/feed/usecase/load_signals_feed_usecase.dart';
 import 'package:nexora_app/screens/feed/view/feed_view.dart';
+import 'package:nexora_app/screens/feed/viewmodel/feed_viewmodel.dart';
 import 'package:nexora_app/screens/home/model/home_tab.dart';
 import 'package:nexora_app/screens/home/view/home_view.dart';
 import 'package:nexora_app/common/domain/usecases/sync_from_server_usecase.dart';
@@ -23,12 +23,8 @@ import 'package:nexora_app/screens/settings/usecase/test_proxy_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/update_settings_usecase.dart';
 import 'package:nexora_app/screens/settings/usecase/watch_server_usecase.dart';
 import 'package:nexora_app/screens/settings/view/settings_view.dart';
-import 'package:nexora_app/screens/signal/usecase/execute_signal_usecase.dart';
-import 'package:nexora_app/screens/signal/usecase/parse_signal_usecase.dart';
-import 'package:nexora_app/screens/signal/view/signal_view.dart';
 
 import 'package:nexora_app/common/domain/repositories/refreshable.dart';
-import 'package:nexora_app/screens/signal/viewmodel/signal_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../../fakes.dart';
@@ -57,7 +53,6 @@ void main() {
     final accounts = FakeAccountRepository([testAccount()]);
     final settings = FakeSettingsRepository();
     final activity = FakeActivityRepository();
-    final broker = FakeBrokerRepository();
     final proxy = _FakeProxyRepository();
     final server = FakeServerRepository();
     final signals = FakeEpsSignalsRepository();
@@ -71,8 +66,6 @@ void main() {
       ..registerFactory(() => GetServerIpUseCase(server))
       ..registerFactory(() => WatchAccountsUseCase(accounts))
       ..registerFactory(() => WatchSettingsUseCase(settings))
-      ..registerFactory(() => ParseSignalUseCase(SignalParser()))
-      ..registerFactory(() => ExecuteSignalUseCase(broker, accounts, settings, activity))
       ..registerFactory(() => ToggleAccountEnabledUseCase(accounts))
       ..registerFactory(() => WatchActivityUseCase(activity))
       ..registerFactory(() => ClearActivityUseCase(activity))
@@ -91,18 +84,17 @@ void main() {
 
   int stackIndex(WidgetTester tester) => tester.widget<IndexedStack>(find.byType(IndexedStack)).index!;
 
-  testWidgets('builds all five tabs and starts on Signals', (tester) async {
+  testWidgets('builds all four tabs and starts on Signals', (tester) async {
     await pumpView(tester);
 
     final nav = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(nav.selectedIndex, 0);
-    expect(nav.destinations, hasLength(5));
+    expect(nav.destinations, hasLength(4));
     for (final t in HomeTab.values) {
       expect(find.descendant(of: find.byType(NavigationBar), matching: find.text(t.label)), findsOneWidget);
     }
     expect(stackIndex(tester), 0);
     expect(find.byType(FeedView), findsOneWidget);
-    expect(find.byType(SignalView, skipOffstage: false), findsOneWidget);
     expect(find.byType(AccountsView, skipOffstage: false), findsOneWidget);
     expect(find.byType(ActivityView, skipOffstage: false), findsOneWidget);
     expect(find.byType(SettingsView, skipOffstage: false), findsOneWidget);
@@ -115,29 +107,25 @@ void main() {
 
     await tester.tap(dest('Accounts'));
     await tester.pumpAndSettle();
-    expect(stackIndex(tester), 2);
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
+    expect(stackIndex(tester), 1);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 1);
     expect(find.text('Broker accounts'), findsOneWidget);
     expect(find.byIcon(Icons.key), findsOneWidget);
 
     await tester.tap(dest('Activity'));
     await tester.pumpAndSettle();
-    expect(stackIndex(tester), 3);
+    expect(stackIndex(tester), 2);
     expect(find.text('Executed signals will appear here.'), findsOneWidget);
 
     await tester.tap(dest('Settings'));
     await tester.pumpAndSettle();
-    expect(stackIndex(tester), 4);
+    expect(stackIndex(tester), 3);
     expect(find.byIcon(Icons.tune), findsOneWidget);
-
-    await tester.tap(dest('Signal'));
-    await tester.pumpAndSettle();
-    expect(stackIndex(tester), 1);
-    expect(find.text('Broker accounts'), findsNothing);
 
     await tester.tap(dest('Signals'));
     await tester.pumpAndSettle();
     expect(stackIndex(tester), 0);
+    expect(find.text('Broker accounts'), findsNothing);
   });
 
   testWidgets('shows a failed server sync with Retry, and clears it once it works', (tester) async {
@@ -161,15 +149,11 @@ void main() {
       ..unregister<SyncFromServerUseCase>()
       ..registerFactory(() => SyncFromServerUseCase([flaky]));
     await pumpView(tester);
-    Finder signalField() => find.descendant(
-          of: find.byType(SignalView, skipOffstage: false),
-          matching: find.byType(TextField, skipOffstage: false),
-        );
-    final before = Provider.of<SignalViewModel>(tester.element(signalField().first), listen: false);
+    final before = Provider.of<FeedViewModel>(tester.element(find.byType(RefreshIndicator)), listen: false);
 
     dataGeneration.value++;
     await tester.pumpAndSettle();
-    final after = Provider.of<SignalViewModel>(tester.element(signalField().first), listen: false);
+    final after = Provider.of<FeedViewModel>(tester.element(find.byType(RefreshIndicator)), listen: false);
     expect(identical(before, after), isFalse, reason: 'view models are rebuilt on the new repositories');
     expect(flaky.calls, 2);
   });

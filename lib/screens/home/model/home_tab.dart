@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 enum HomeTab {
   feed('Signals', Icons.show_chart_outlined, Icons.show_chart),
-  signal('Signal', Icons.bolt_outlined, Icons.bolt),
   accounts('Accounts', Icons.key_outlined, Icons.key),
   activity('Activity', Icons.receipt_long_outlined, Icons.receipt_long),
   settings('Settings', Icons.tune_outlined, Icons.tune);

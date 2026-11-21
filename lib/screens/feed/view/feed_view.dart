@@ -45,7 +45,16 @@ class _FeedBody extends StatelessWidget {
             children: [
               Expanded(child: Text('Signals', style: theme.textTheme.headlineSmall)),
               if (state.loading)
-                const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh',
+                  onPressed: vm.refresh,
+                ),
             ],
           ),
           const SizedBox(height: 12),

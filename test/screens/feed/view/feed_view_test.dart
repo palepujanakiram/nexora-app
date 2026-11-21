@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_app/common/di/injector.dart';
@@ -123,5 +125,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repo.calls, 2);
+  });
+
+  testWidgets('a refresh button at the top loads again, replaced by a spinner while it runs', (tester) async {
+    await pumpView(tester);
+    await tester.pumpAndSettle();
+    expect(repo.calls, 1);
+    expect(find.byIcon(Icons.refresh), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    repo.hold = Completer<void>();
+    await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.refresh), findsNothing, reason: 'a spinner takes its place while loading');
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    repo.hold!.complete();
+    await tester.pumpAndSettle();
+    expect(repo.calls, 2);
+    expect(find.byIcon(Icons.refresh), findsOneWidget);
   });
 }
